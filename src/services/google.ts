@@ -1,14 +1,15 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { google } from 'googleapis';
 import { authenticate } from '@google-cloud/local-auth';
 import { OAuth2Client } from 'google-auth-library';
+import fs from 'fs/promises';
+import path from 'path';
 
 const SCOPES = [
-  'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/drive.metadata.readonly',
+  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/youtube.force-ssl',
   'https://www.googleapis.com/auth/blogger'
@@ -18,104 +19,74 @@ const TOKEN_PATH = path.join(process.cwd(), 'token.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), 'client_secret.json');
 
 export class GoogleService {
-  private authClient: OAuth2Client | null = null;
+  private auth: OAuth2Client | null = null;
 
-  async getClient(): Promise<OAuth2Client> {
-    if (this.authClient) return this.authClient;
+  async getAuthUrl(): Promise<string> {
+    const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
+    const credentials = JSON.parse(content);
+    const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+
+    return oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES,
+    });
+  }
+
+  async setToken(code: string): Promise<void> {
+    const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
+    const credentials = JSON.parse(content);
+    const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+
+    const { tokens } = await oAuth2Client.getToken(code);
+    await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens));
+    this.auth = oAuth2Client;
+    oAuth2Client.setCredentials(tokens);
+  }
+
+  private async getAuthorizedClient(): Promise<any> {
+    if (this.auth) return this.auth;
 
     try {
-      const credentialsContent = await fs.readFile(CREDENTIALS_PATH, 'utf8');
-      const credentials = JSON.parse(credentialsContent);
-      const key = credentials.web || credentials.installed;
+      const content = await fs.readFile(TOKEN_PATH, 'utf8');
+      const tokens = JSON.parse(content);
+      const credsContent = await fs.readFile(CREDENTIALS_PATH, 'utf8');
+      const credentials = JSON.parse(credsContent);
+      const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
 
-      if (!key) throw new Error('Invalid client_secret.json format');
-
-      this.authClient = new google.auth.OAuth2(
-        key.client_id,
-        key.client_secret,
-        key.redirect_uris?.[0]
-      );
-
-      const tokenContent = await fs.readFile(TOKEN_PATH, 'utf8');
-      const tokens = JSON.parse(tokenContent);
-      this.authClient.setCredentials(tokens);
-
-      return this.authClient;
-    } catch (err: any) {
-      console.error('❌ Google Auth Error:', err.message);
-      throw new Error(`Google Auth Failed: ${err.message}. Please ensure token.json exists and is valid.`, { cause: err });
+      const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+      oAuth2Client.setCredentials(tokens);
+      this.auth = oAuth2Client as any;
+      return this.auth;
+    } catch (error) {
+      console.warn("Google Auth token not found or invalid. Please run /auth.");
+      return null;
     }
   }
 
   async gmail() {
-    const auth = await this.getClient();
+    const auth = await this.getAuthorizedClient();
+    if (!auth) throw new Error("Google not authorized. Use /auth");
     return google.gmail({ version: 'v1', auth });
   }
 
   async drive() {
-    const auth = await this.getClient();
+    const auth = await this.getAuthorizedClient();
+    if (!auth) throw new Error("Google not authorized. Use /auth");
     return google.drive({ version: 'v3', auth });
   }
 
   async youtube() {
-    const auth = await this.getClient();
+    const auth = await this.getAuthorizedClient();
+    if (!auth) throw new Error("Google not authorized. Use /auth");
     return google.youtube({ version: 'v3', auth });
   }
 
   async blogger() {
-    const auth = await this.getClient();
+    const auth = await this.getAuthorizedClient();
+    if (!auth) throw new Error("Google not authorized. Use /auth");
     return google.blogger({ version: 'v3', auth });
-  }
-
-  // Manual Auth Flow for Bot
-  async getAuthUrl() {
-    const credentialsContent = await fs.readFile(CREDENTIALS_PATH, 'utf8');
-    const credentials = JSON.parse(credentialsContent);
-    const key = credentials.web || credentials.installed;
-
-    this.authClient = new google.auth.OAuth2(
-      key.client_id,
-      key.client_secret,
-      key.redirect_uris?.[0] || 'urn:ietf:wg:oauth:2.0:oob'
-    );
-
-    return this.authClient.generateAuthUrl({
-      access_type: 'offline',
-      scope: SCOPES,
-      prompt: 'consent'
-    });
-  }
-
-  async exchangeCode(code: string) {
-    if (!this.authClient) {
-        // Re-init client if needed
-        const credentialsContent = await fs.readFile(CREDENTIALS_PATH, 'utf8');
-        const credentials = JSON.parse(credentialsContent);
-        const key = credentials.web || credentials.installed;
-        this.authClient = new google.auth.OAuth2(key.client_id, key.client_secret, key.redirect_uris?.[0]);
-    }
-
-    try {
-      const { tokens } = await this.authClient.getToken(code);
-      this.authClient.setCredentials(tokens);
-      await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens));
-      return tokens;
-    } catch (e: any) {
-      throw new Error("Failed to exchange code", { cause: e });
-    }
-  }
-
-  // Initial Auth Flow (keeping for backward compatibility or terminal use)
-  async runAuth() {
-    const client = await authenticate({
-      scopes: SCOPES,
-      keyfilePath: CREDENTIALS_PATH,
-    });
-    if (client.credentials) {
-      await fs.writeFile(TOKEN_PATH, JSON.stringify(client.credentials));
-      console.log('Token saved to token.json');
-    }
-    return client;
   }
 }
 

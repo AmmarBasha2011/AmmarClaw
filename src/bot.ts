@@ -62,12 +62,12 @@ bot.command('schedule', async (ctx) => {
     await ctx.reply(`✅ *Scheduled!*\n\nTask: \`${prompt}\`\nRepeat: every ${value} ${unit}(s)\nNext Run: \`${nextRun}\``, { parse_mode: 'Markdown' });
 });
 
-bot.command('schedules', (ctx) => {
-    const list = memory.getSchedules();
+bot.command('schedules', async (ctx) => {
+    const list = await memory.getSchedules();
     if (list.length === 0) return ctx.reply("No active schedules.");
 
     let response = "📂 *Active Schedules*:\n\n";
-    list.forEach(s => {
+    list.forEach((s: any) => {
         response += `ID: \`${s.id}\` | \`${s.prompt}\`\nEvery ${s.interval_value} ${s.interval_type}s\nNext: ${s.next_run}\n\n`;
     });
     ctx.reply(response, { parse_mode: 'Markdown' });
