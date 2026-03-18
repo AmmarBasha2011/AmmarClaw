@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ammar's Digital Space</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #020617;
+            --bg-card: #0f172a;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-fast: 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-primary); overflow-x: hidden; scroll-behavior: smooth; }
+        .background-animation { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%); }
+        nav { display: flex; justify-content: space-between; align-items: center; padding: 2rem 5%; position: fixed; top: 0; width: 100%; z-index: 100; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .logo { font-size: 1.5rem; font-weight: 700; color: var(--accent); letter-spacing: 2px; }
+        .nav-links { list-style: none; display: flex; gap: 2rem; }
+        .nav-links a { text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; transition: var(--transition-fast); }
+        .nav-links a:hover { color: var(--accent); text-shadow: 0 0 10px var(--accent-glow); }
+        .hero { height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 10%; }
+        .hero h1 { font-size: clamp(2.5rem, 8vw, 5rem); margin-bottom: 1rem; font-weight: 800; }
+        .highlight { color: var(--accent); text-shadow: 0 0 20px var(--accent-glow); }
+        .hero p { font-size: 1.25rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto 2rem; line-height: 1.6; }
+        .cta-container { display: flex; gap: 1rem; justify-content: center; }
+        .btn { padding: 0.8rem 2rem; border-radius: 8px; text-decoration: none; font-weight: 600; transition: var(--transition-fast); font-size: 1rem; }
+        .btn.primary { background: var(--accent); color: white; }
+        .btn.primary:hover { transform: translateY(-5px); box-shadow: 0 10px 20px var(--accent-glow); }
+        .btn.secondary { border: 1px solid var(--accent); color: var(--accent); }
+        .btn.secondary:hover { background: rgba(59, 130, 246, 0.1); }
+        section { padding: 100px 5%; max-width: 1000px; margin: 0 auto; }
+        h2 { font-size: 2rem; margin-bottom: 2rem; text-align: center; color: var(--accent); }
+        .fade-in { opacity: 0; transform: translateY(20px); animation: fadeInUp 0.8s forwards; }
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+        footer { text-align: center; padding: 3rem; color: var(--text-secondary); font-size: 0.9rem; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body>
+    <div class="background-animation"></div>
+    <nav>
+        <div class="logo">AMMAR</div>
+        <ul class="nav-links">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+    <main>
+        <section id="home" class="hero">
+            <div class="hero-content">
+                <h1 class="fade-in">Hi, I'm <span class="highlight">Ammar</span>.</h1>
+                <p class="fade-in delay-1">I build sleek, modern, and high-performance digital experiences.</p>
+                <div class="cta-container fade-in delay-2">
+                    <a href="#about" class="btn primary">View My Work</a>
+                    <a href="mailto:ammar@example.com" class="btn secondary">Get In Touch</a>
+                </div>
+            </div>
+        </section>
+        <section id="about">
+            <h2>*ABOUT ME*</h2>
+            <p style="text-align: center; color: var(--text-secondary); line-height: 1.8;">
+                Passionate developer focused on creating clean code and intuitive user interfaces. I love exploring new technologies and pushing the boundaries of web development.
+            </p>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Ammar. All rights reserved.</p>
+    </footer>
+</body>
+</html>
