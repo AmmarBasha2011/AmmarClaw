@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -80,6 +80,15 @@ export class MCPService {
             name: 'Flight Search',
             mcpUrl: 'https://flight-mcp--gvzq.run.tools',
             connectionIdKey: 'FLIGHT_CONNECTION_ID'
+        });
+        this.instances.set('python', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Python',
+            mcpUrl: 'https://py_execute_mcp--stuzhy.run.tools',
+            connectionIdKey: 'PYTHON_CONNECTION_ID'
         });
     }
 

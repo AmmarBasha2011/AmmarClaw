@@ -1,5 +1,5 @@
 import { registry } from '../tools/index.js';
-import { LLMProvider, ChatMessage } from '../services/llm/index.js';
+import { LLMProvider, ChatMessage, MediaData } from '../services/llm/index.js';
 import { MemoryService } from '../services/memory.js';
 
 export class Agent {
@@ -14,9 +14,10 @@ export class Agent {
     input: string, 
     onToolCall?: (name: string, args: any, status: 'executing' | 'pending' | 'completed', result?: string) => Promise<void>,
     autoMode: boolean = false,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    media?: MediaData[]
   ): Promise<string> {
-    // 1. Save User Message
+    // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
     await this.memory.addMessage('user', input);
 
     let loopCount = 0;
@@ -34,6 +35,14 @@ export class Agent {
         content: m.content,
         name: m.name,
       }));
+
+      // Attach media to the LAST user message if it's the first turn
+      if (loopCount === 1 && media && media.length > 0) {
+          const lastUserMsg = [...chatHistory].reverse().find(m => m.role === 'user');
+          if (lastUserMsg) {
+              lastUserMsg.media = media;
+          }
+      }
 
       // 3. Call LLM
       let response;

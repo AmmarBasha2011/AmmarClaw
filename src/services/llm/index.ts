@@ -3,11 +3,17 @@ import { Groq } from 'groq-sdk';
 import { config } from '../../config/env.js';
 import { registry } from '../../tools/index.js';
 
+export interface MediaData {
+  mimeType: string;
+  data: string; // base64 encoded
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'function';
   content: string;
   name?: string; // For function calls/responses
   thought_signature?: string; // Gemini 3 Flash requirement
+  media?: MediaData[];
 }
 
 export interface LLMResponse {
@@ -87,9 +93,21 @@ export class GeminiProvider implements LLMProvider {
           };
       }
 
+      const parts: any[] = [{ text: msg.content }];
+      if (msg.media && msg.media.length > 0) {
+        msg.media.forEach(m => {
+          parts.push({
+            inlineData: {
+              mimeType: m.mimeType,
+              data: m.data
+            }
+          });
+        });
+      }
+
       return {
         role: 'user',
-        parts: [{ text: msg.content }]
+        parts: parts
       };
     });
 

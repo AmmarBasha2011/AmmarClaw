@@ -100,6 +100,9 @@ export class ToolRegistry {
     } else if (rawName.startsWith('flight__')) {
         cleanName = rawName.substring(8);
         detectedInstance = 'flight';
+    } else if (rawName.startsWith('python__')) {
+        cleanName = rawName.substring(8);
+        detectedInstance = 'python';
     } else if (rawName.startsWith('mcp__')) {
         // Fallback for generic prefix
         cleanName = rawName.substring(5);

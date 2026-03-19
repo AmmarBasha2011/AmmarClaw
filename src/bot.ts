@@ -3,6 +3,8 @@ import { config } from './config/env.js';
 import { agent } from './core/agent.js';
 import { googleService } from './services/google.js';
 import { memory } from './services/memory.js';
+import { MediaData } from './services/llm/index.js';
+import axios from 'axios';
 import { scheduler } from './services/scheduler.js';
 import { mcpService } from './services/mcp.js';
 
@@ -95,6 +97,7 @@ bot.command('status', (ctx) => {
     const status = mcpService.getStatus();
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
+        `📦 *Code Version*: ${config.VERSION}\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded`,
         { parse_mode: 'Markdown' }
@@ -132,10 +135,74 @@ bot.command('end', (ctx) => {
     ctx.reply("🛑 Task has been stopped.");
 });
 
+async function downloadFile(fileId: string): Promise<{ data: string, mimeType: string }> {
+    const file = await bot.api.getFile(fileId);
+    const url = `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data);
+
+    let mimeType = 'application/octet-stream';
+    const ext = file.file_path?.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg'].includes(ext!)) mimeType = 'image/jpeg';
+    else if (ext === 'png') mimeType = 'image/png';
+    else if (ext === 'webp') mimeType = 'image/webp';
+    else if (ext === 'mp4') mimeType = 'video/mp4';
+    else if (ext === 'mpeg') mimeType = 'video/mpeg';
+    else if (ext === 'mp3') mimeType = 'audio/mpeg';
+    else if (ext === 'wav') mimeType = 'audio/wav';
+    else if (ext === 'pdf') mimeType = 'application/pdf';
+
+    return {
+        data: buffer.toString('base64'),
+        mimeType
+    };
+}
+
+async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
+    const userId = ctx.from.id.toString();
+
+    // 1. Regular Task Logic
+    if (currentController) {
+        return ctx.reply("⚠️ Another task is already running. Use /end to stop it first.");
+    }
+
+    currentController = new AbortController();
+    await ctx.replyWithChatAction('typing');
+
+    let processedText = text;
+    let autoMode = false;
+    if (text.toLowerCase().startsWith('/auto ')) {
+        processedText = text.substring(6).trim();
+        autoMode = true;
+    }
+
+    try {
+        const response = await agent.run(userId, processedText, async (name, args, status) => {
+            if (status === 'executing') await ctx.reply(`🛠 AI Using Tool [${name}]`);
+            if (status === 'completed') await ctx.reply(`✅ AI Used Tool [${name}]`);
+            await ctx.replyWithChatAction('typing');
+        }, autoMode, currentController.signal, media);
+
+        try {
+            await ctx.reply(response, { parse_mode: 'Markdown' });
+        } catch {
+            await ctx.reply(response); // Fallback to plain text
+        }
+    } catch (error: any) {
+        if (error.name === 'AbortError' || currentController?.signal.aborted) {
+            console.log("[Agent] Task aborted.");
+        } else {
+            console.error("Agent Error:", error);
+            await ctx.reply("⚠️ An error occurred while processing your request.");
+        }
+    } finally {
+        currentController = null;
+    }
+}
+
 // Message Handler
 bot.on('message:text', async (ctx) => {
     const text = ctx.message.text;
-    const userId = ctx.from.id.toString();
 
     // 1. Auth & Approval Commands
     let authCode = '';
@@ -179,42 +246,32 @@ bot.on('message:text', async (ctx) => {
         if (pending) { await memory.clearPendingAction(); await ctx.reply("❌ Action cancelled."); return; }
     }
 
-    // 2. Regular Task Logic
-    if (currentController) {
-        return ctx.reply("⚠️ Another task is already running. Use /end to stop it first.");
+    await handleAgentRun(ctx, text);
+});
+
+bot.on(['message:photo', 'message:video', 'message:audio', 'message:document'], async (ctx) => {
+    let fileId: string | undefined;
+    let text = ctx.message.caption || "Please analyze this file.";
+
+    if (ctx.message.photo) {
+        fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+    } else if (ctx.message.video) {
+        fileId = ctx.message.video.file_id;
+    } else if (ctx.message.audio) {
+        fileId = ctx.message.audio.file_id;
+    } else if (ctx.message.document) {
+        fileId = ctx.message.document.file_id;
     }
 
-    currentController = new AbortController();
-    await ctx.replyWithChatAction('typing');
-
-    let processedText = text;
-    let autoMode = false;
-    if (text.toLowerCase().startsWith('/auto ')) {
-        processedText = text.substring(6).trim();
-        autoMode = true;
-    }
-
-    try {
-        const response = await agent.run(userId, processedText, async (name, args, status) => {
-            if (status === 'executing') await ctx.reply(`🛠 AI Using Tool [${name}]`);
-            if (status === 'completed') await ctx.reply(`✅ AI Used Tool [${name}]`);
-            await ctx.replyWithChatAction('typing');
-        }, autoMode, currentController.signal);
-        
+    if (fileId) {
         try {
-            await ctx.reply(response, { parse_mode: 'Markdown' });
-        } catch {
-            await ctx.reply(response); // Fallback to plain text
+            await ctx.replyWithChatAction('typing');
+            const media = await downloadFile(fileId);
+            await handleAgentRun(ctx, text, [media]);
+        } catch (error: any) {
+            console.error("Media processing error:", error);
+            await ctx.reply(`❌ Failed to process media: ${error.message}`);
         }
-    } catch (error: any) {
-        if (error.name === 'AbortError' || currentController?.signal.aborted) {
-            console.log("[Agent] Task aborted.");
-        } else {
-            console.error("Agent Error:", error);
-            await ctx.reply("⚠️ An error occurred while processing your request.");
-        }
-    } finally {
-        currentController = null;
     }
 });
 
