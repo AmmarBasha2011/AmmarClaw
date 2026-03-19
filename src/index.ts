@@ -37,6 +37,7 @@ async function main() {
                     config.TELEGRAM_USER_ID, 
                     `🌙 *AmmarClaw is awake.*\n\n` +
                     `⚙️ *Mode*: Unlimited\n` +
+                    `📦 *Code Version*: V1.1\n` +
                     `🔑 *Gemini Keys*: ${keyCount} loaded\n` +
                     `🔌 *MCP Status*: ${mcpStatus.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
                     `🛠 *MCP Tools*: ${mcpStatus.toolCount} loaded`,

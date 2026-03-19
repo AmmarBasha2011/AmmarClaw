@@ -149,14 +149,17 @@ FORMATTING RULES (CRITICAL):
 
       } catch (error: any) {
         console.error(`[Gemini] Key ${this.currentKeyIndex} failed: ${error.message}`);
-        // Retry on quota errors (429) or server errors (5xx)
-        if (error.status === 429 || error.status >= 500 || error.message.includes('Quota')) {
-           this.rotateKey();
-           attempt++;
-           // Small delay?
-           await new Promise(r => setTimeout(r, 1000));
+
+        // Always rotate and retry for any error to exhaust all keys
+        this.rotateKey();
+        attempt++;
+
+        if (attempt < maxRetries) {
+           console.log(`[Gemini] Retrying with next key... (Attempt ${attempt + 1}/${maxRetries})`);
+           await new Promise(r => setTimeout(r, 500));
         } else {
-           throw error; // Fatal error (e.g. 400 Bad Request, 404 Not Found)
+           console.error("[Gemini] All keys failed.");
+           throw error;
         }
       }
     }

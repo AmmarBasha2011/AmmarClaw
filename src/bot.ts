@@ -196,7 +196,8 @@ bot.on('message:text', async (ctx) => {
 
     try {
         const response = await agent.run(userId, processedText, async (name, args, status) => {
-            if (status === 'executing') await ctx.reply(`🛠 AI using tool: [${name}]`);
+            if (status === 'executing') await ctx.reply(`🛠 AI Using Tool [${name}]`);
+            if (status === 'completed') await ctx.reply(`✅ AI Used Tool [${name}]`);
             await ctx.replyWithChatAction('typing');
         }, autoMode, currentController.signal);
         

@@ -17,6 +17,11 @@ const envSchema = z.object({
   GITHUB_CONNECTION_ID: z.string().optional(),
   CONTEXT7_API_KEY: z.string().optional(),
   SUPABASE_CONNECTION_ID: z.string().optional(),
+  WEATHER_CONNECTION_ID: z.string().optional(),
+  RSS_CONNECTION_ID: z.string().optional(),
+  ICONS8_CONNECTION_ID: z.string().optional(),
+  NPM_CONNECTION_ID: z.string().optional(),
+  FLIGHT_CONNECTION_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

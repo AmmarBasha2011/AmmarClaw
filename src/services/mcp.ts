@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -35,6 +35,51 @@ export class MCPService {
             name: 'Supabase',
             mcpUrl: 'https://supabase.run.tools',
             connectionIdKey: 'SUPABASE_CONNECTION_ID'
+        });
+        this.instances.set('weather', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Weather',
+            mcpUrl: 'https://mcp_weather_server--isdaniel.run.tools',
+            connectionIdKey: 'WEATHER_CONNECTION_ID'
+        });
+        this.instances.set('rss', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'RSS Reader',
+            mcpUrl: 'https://rss-reader-mcp--kwp-lab.run.tools',
+            connectionIdKey: 'RSS_CONNECTION_ID'
+        });
+        this.instances.set('icons8', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Icons8',
+            mcpUrl: 'https://icons8mpc--icons8community.run.tools',
+            connectionIdKey: 'ICONS8_CONNECTION_ID'
+        });
+        this.instances.set('npm', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'NPM Sentinel',
+            mcpUrl: 'https://npm-sentinel-mcp--nekzus.run.tools',
+            connectionIdKey: 'NPM_CONNECTION_ID'
+        });
+        this.instances.set('flight', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Flight Search',
+            mcpUrl: 'https://flight-mcp--gvzq.run.tools',
+            connectionIdKey: 'FLIGHT_CONNECTION_ID'
         });
     }
 

@@ -62,6 +62,21 @@ export class ToolRegistry {
     } else if (rawName.startsWith('supabase__')) {
         cleanName = rawName.substring(10);
         detectedInstance = 'supabase';
+    } else if (rawName.startsWith('weather__')) {
+        cleanName = rawName.substring(9);
+        detectedInstance = 'weather';
+    } else if (rawName.startsWith('rss__')) {
+        cleanName = rawName.substring(5);
+        detectedInstance = 'rss';
+    } else if (rawName.startsWith('icons8__')) {
+        cleanName = rawName.substring(8);
+        detectedInstance = 'icons8';
+    } else if (rawName.startsWith('npm__')) {
+        cleanName = rawName.substring(5);
+        detectedInstance = 'npm';
+    } else if (rawName.startsWith('flight__')) {
+        cleanName = rawName.substring(8);
+        detectedInstance = 'flight';
     } else if (rawName.startsWith('mcp__')) {
         // Fallback for generic prefix
         cleanName = rawName.substring(5);
