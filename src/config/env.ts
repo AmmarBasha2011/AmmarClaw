@@ -23,7 +23,6 @@ const envSchema = z.object({
   NPM_CONNECTION_ID: z.string().optional(),
   FLIGHT_CONNECTION_ID: z.string().optional(),
   PYTHON_CONNECTION_ID: z.string().optional(),
-  VERSION: z.string().default("V1.11"),
 });
 
 const parsed = envSchema.safeParse(process.env);

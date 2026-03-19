@@ -36,9 +36,24 @@ export class ToolRegistry {
     const newSchema = Array.isArray(schema) ? [] : { ...schema };
 
     // Remove unsupported fields for Gemini
-    if (newSchema.additionalProperties !== undefined) {
-      delete newSchema.additionalProperties;
-    }
+    const unsupportedFields = [
+        'additionalProperties',
+        'exclusiveMinimum',
+        'exclusiveMaximum',
+        'minimum',
+        'maximum',
+        'pattern',
+        'anyOf',
+        'oneOf',
+        'allOf',
+        'not'
+    ];
+
+    unsupportedFields.forEach(field => {
+        if (newSchema[field] !== undefined) {
+            delete newSchema[field];
+        }
+    });
 
     // Recursively sanitize properties and items
     if (newSchema.properties) {
@@ -78,34 +93,13 @@ export class ToolRegistry {
     let cleanName = rawName;
     let detectedInstance: string | undefined;
 
-    // Check for GitHub or Context7 prefixes
-    if (rawName.startsWith('github__')) {
-        cleanName = rawName.substring(8);
-        detectedInstance = 'github';
-    } else if (rawName.startsWith('supabase__')) {
-        cleanName = rawName.substring(10);
-        detectedInstance = 'supabase';
-    } else if (rawName.startsWith('weather__')) {
-        cleanName = rawName.substring(9);
-        detectedInstance = 'weather';
-    } else if (rawName.startsWith('rss__')) {
-        cleanName = rawName.substring(5);
-        detectedInstance = 'rss';
-    } else if (rawName.startsWith('icons8__')) {
-        cleanName = rawName.substring(8);
-        detectedInstance = 'icons8';
-    } else if (rawName.startsWith('npm__')) {
-        cleanName = rawName.substring(5);
-        detectedInstance = 'npm';
-    } else if (rawName.startsWith('flight__')) {
-        cleanName = rawName.substring(8);
-        detectedInstance = 'flight';
-    } else if (rawName.startsWith('python__')) {
-        cleanName = rawName.substring(8);
-        detectedInstance = 'python';
-    } else if (rawName.startsWith('mcp__')) {
-        // Fallback for generic prefix
-        cleanName = rawName.substring(5);
+    if (rawName.includes('__')) {
+        const parts = rawName.split('__');
+        const prefix = parts[0];
+        if (prefix !== 'mcp') {
+            detectedInstance = prefix;
+        }
+        cleanName = parts.slice(1).join('__');
     }
     
     // Check native tools first (only if no explicit instance prefix detected)

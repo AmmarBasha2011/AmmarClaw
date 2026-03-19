@@ -97,7 +97,7 @@ bot.command('status', (ctx) => {
     const status = mcpService.getStatus();
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: ${config.VERSION}\n` +
+        `📦 *Code Version*: V1.11\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded`,
         { parse_mode: 'Markdown' }
