@@ -1,10 +1,20 @@
 import { bot } from './bot.js';
 import { config } from './config/env.js';
 import { scheduler } from './services/scheduler.js';
+import http from 'http';
 
 console.log("Starting AmmarClaw...");
 
 async function main() {
+    // 0. Dummy HTTP server for Koyeb Health Checks
+    const PORT = process.env.PORT || 8000;
+    http.createServer((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('AmmarClaw is Alive\n');
+    }).listen(PORT, () => {
+        console.log(`Health check server listening on port ${PORT}`);
+    });
+
     // 1. Start Scheduler
     scheduler.start();
 

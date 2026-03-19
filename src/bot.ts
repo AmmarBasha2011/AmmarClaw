@@ -57,7 +57,7 @@ bot.command('schedule', async (ctx) => {
     const userId = ctx.from!.id.toString();
 
     const nextRun = scheduler.calculateNextRun(unit, value);
-    memory.addSchedule(userId, prompt, unit, value, nextRun);
+    await memory.addSchedule(userId, prompt, unit, value, nextRun);
 
     await ctx.reply(`✅ *Scheduled!*\n\nTask: \`${prompt}\`\nRepeat: every ${value} ${unit}(s)\nNext Run: \`${nextRun}\``, { parse_mode: 'Markdown' });
 });
@@ -73,10 +73,10 @@ bot.command('schedules', async (ctx) => {
     ctx.reply(response, { parse_mode: 'Markdown' });
 });
 
-bot.command('unschedule', (ctx) => {
+bot.command('unschedule', async (ctx) => {
     const id = parseInt(ctx.match || '');
     if (isNaN(id)) return ctx.reply("Usage: /unschedule [id]");
-    memory.removeSchedule(id);
+    await memory.removeSchedule(id);
     ctx.reply(`✅ Schedule \`${id}\` removed.`);
 });
 

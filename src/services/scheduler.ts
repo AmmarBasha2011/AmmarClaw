@@ -78,7 +78,7 @@ export class SchedulerService {
       default:
         now.setHours(now.getHours() + 1); // Default 1 hour
     }
-    return now.toISOString().replace('T', ' ').split('.')[0]; // SQLite format
+    return now.toISOString(); // Postgres/Supabase compatible
   }
 }
 
