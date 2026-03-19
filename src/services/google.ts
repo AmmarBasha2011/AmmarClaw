@@ -1,5 +1,4 @@
 import { google } from 'googleapis';
-import { authenticate } from '@google-cloud/local-auth';
 import { OAuth2Client } from 'google-auth-library';
 import fs from 'fs/promises';
 import path from 'path';
@@ -19,7 +18,7 @@ const TOKEN_PATH = path.join(process.cwd(), 'token.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), 'client_secret.json');
 
 export class GoogleService {
-  private auth: OAuth2Client | null = null;
+  private auth: any = null;
 
   async getAuthUrl(): Promise<string> {
     const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
@@ -33,7 +32,7 @@ export class GoogleService {
     });
   }
 
-  async setToken(code: string): Promise<void> {
+  async exchangeCode(code: string): Promise<void> {
     const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
     const credentials = JSON.parse(content);
     const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
@@ -57,7 +56,7 @@ export class GoogleService {
 
       const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
       oAuth2Client.setCredentials(tokens);
-      this.auth = oAuth2Client as any;
+      this.auth = oAuth2Client;
       return this.auth;
     } catch (error) {
       console.warn("Google Auth token not found or invalid. Please run /auth.");

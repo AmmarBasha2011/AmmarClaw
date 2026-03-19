@@ -111,7 +111,7 @@ export class MemoryService {
 
   async getSchedules() {
     const { data, error } = await this.supabase.from('ammarclaw_schedules').select('*');
-    if (error) return [];
+    if (error || !data) return [];
     return data;
   }
 
@@ -120,7 +120,7 @@ export class MemoryService {
       .from('ammarclaw_schedules')
       .select('*')
       .lte('next_run', new Date().toISOString());
-    if (error) return [];
+    if (error || !data) return [];
     return data;
   }
 
