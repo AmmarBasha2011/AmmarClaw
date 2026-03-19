@@ -118,7 +118,7 @@ export class GeminiProvider implements LLMProvider {
         const model = genAI.getGenerativeModel({
           model: "gemini-3-flash-preview", 
           tools: [{ functionDeclarations: registry.getFunctionDeclarations() }],
-          systemInstruction: `You are AmmarClaw, a personal AI assistant for Ammar. You run locally and use Telegram as your interface. Your goal is to be helpful, precise, and secure. Always use tools when needed.
+          systemInstruction: `You are AmmarClaw, Ammar's Personal AI OS Agent. You run locally and use Telegram as your primary interface to manage his digital world. You are powerful, proactive, and secure. You have deep access to files, cloud services, and specialized tools. Your goal is to execute tasks with high precision and provide a seamless "AI OS" experience. Always use tools when needed to interact with the environment.
 
 FORMATTING RULES (CRITICAL):
 1. Use ONLY these Telegram-compatible Markdown elements: *bold*, _italic_, \`inline code\`, and \`\`\`code blocks\`\`\`.
@@ -136,7 +136,7 @@ FORMATTING RULES (CRITICAL):
             return firstUserIndex !== -1 ? h.slice(firstUserIndex) : [];
           })(),
           generationConfig: {
-            maxOutputTokens: 2048,
+            maxOutputTokens: 100000,
           },
         });
 
