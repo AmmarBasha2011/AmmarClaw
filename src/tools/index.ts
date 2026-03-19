@@ -37,7 +37,7 @@ export class ToolRegistry {
     }));
 
     const mcpTools = mcpService.getTools().map((tool: any) => ({
-        name: tool.name,
+        name: `mcp__${tool.name}`,
         description: tool.description,
         parameters: {
             type: SchemaType.OBJECT,
@@ -50,15 +50,24 @@ export class ToolRegistry {
   }
 
   async execute(name: string, args: any): Promise<string> {
-    const cleanName = name.includes(':') ? name.split(':').pop()! : name;
+    const rawName = name.includes(':') ? name.split(':').pop()! : name;
+    let cleanName = rawName;
+    let isMcpPrefix = false;
+
+    if (rawName.startsWith('mcp__')) {
+        cleanName = rawName.substring(5);
+        isMcpPrefix = true;
+    }
     
-    // Check native tools first
-    const tool = this.tools.get(cleanName);
-    if (tool) {
-        try {
-            return await tool.execute(args);
-        } catch (error: any) {
-            return `Error executing tool ${name}: ${error.message}`;
+    // Check native tools first (only if not explicitly prefixed as MCP)
+    if (!isMcpPrefix) {
+        const tool = this.tools.get(cleanName);
+        if (tool) {
+            try {
+                return await tool.execute(args);
+            } catch (error: any) {
+                return `Error executing tool ${name}: ${error.message}`;
+            }
         }
     }
 

@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { createConnection, SmitheryAuthorizationError } from "@smithery/api/mcp";
 import { bot } from "../bot.js";
 import { config } from "../config/env.js";
+import { updateEnv } from "../utils/env.js";
 
 export class MCPService {
     private client: Client | null = null;
@@ -38,12 +39,13 @@ export class MCPService {
             
             console.log(`[MCP] Connected successfully. Connection ID: ${connection.connectionId}. Retrieved ${tools.length} tools.`);
             
-            // If it's a new connection, inform the user to save it
-            if (!config.GITHUB_CONNECTION_ID) {
+            // If it's a new connection or re-connected, auto-save it
+            if (!config.GITHUB_CONNECTION_ID || config.GITHUB_CONNECTION_ID !== connection.connectionId) {
+                await updateEnv('GITHUB_CONNECTION_ID', connection.connectionId);
                 try {
                     await bot.api.sendMessage(
                         config.TELEGRAM_USER_ID,
-                        `✅ *GitHub MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\nTo persist this connection and avoid re-authorizing, add this to your \`.env\`:\n\`GITHUB_CONNECTION_ID=${connection.connectionId}\``,
+                        `✅ *GitHub MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
                         { parse_mode: 'Markdown' }
                     );
                 } catch (_e) {}
@@ -53,10 +55,11 @@ export class MCPService {
         } catch (error: any) {
             if (error instanceof SmitheryAuthorizationError) {
                 console.warn(`[MCP] Auth required for connection ${error.connectionId}: ${error.authorizationUrl}`);
+                await updateEnv('GITHUB_CONNECTION_ID', error.connectionId);
                 try {
                     await bot.api.sendMessage(
                         config.TELEGRAM_USER_ID,
-                        `🔗 *GitHub MCP Authorization Required*\n\nPlease visit this URL to authorize GitHub:\n${error.authorizationUrl}\n\n*Important*: After authorizing, add this to your \`.env\` to keep the connection:\n\`GITHUB_CONNECTION_ID=${error.connectionId}\`\n\nThen use /reload to refresh tools.`,
+                        `🔗 *GitHub MCP Authorization Required*\n\nPlease visit this URL to authorize GitHub:\n${error.authorizationUrl}\n\n*Important*: After authorizing, use /reload to refresh tools.\n\n_Connection ID has been automatically saved to your .env file._`,
                         { parse_mode: 'Markdown' }
                     );
                 } catch (_e) {}
