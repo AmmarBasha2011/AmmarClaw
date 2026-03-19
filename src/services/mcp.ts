@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'CONTEXT7_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -27,14 +27,14 @@ export class MCPService {
             mcpUrl: 'https://github.run.tools',
             connectionIdKey: 'GITHUB_CONNECTION_ID'
         });
-        this.instances.set('context7', {
+        this.instances.set('supabase', {
             client: null,
             transport: null,
             tools: [],
             isConnected: false,
-            name: 'Context7',
-            mcpUrl: 'https://context7-mcp--upstash.run.tools',
-            connectionIdKey: 'CONTEXT7_CONNECTION_ID'
+            name: 'Supabase',
+            mcpUrl: 'https://supabase.run.tools',
+            connectionIdKey: 'SUPABASE_CONNECTION_ID'
         });
     }
 
@@ -60,11 +60,6 @@ export class MCPService {
                 connectionId: connectionId,
             };
 
-            if (instance.connectionIdKey === 'CONTEXT7_CONNECTION_ID' && config.CONTEXT7_API_KEY) {
-                options.headers = {
-                    'CONTEXT7_API_KEY': config.CONTEXT7_API_KEY
-                };
-            }
 
             const connection = await createConnection(options);
 

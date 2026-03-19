@@ -15,8 +15,8 @@ const envSchema = z.object({
   DB_PATH: z.string().default('./memory.db'),
   SMITHERY_API_KEY: z.string().min(1, "Smithery API Key is required"),
   GITHUB_CONNECTION_ID: z.string().optional(),
-  CONTEXT7_CONNECTION_ID: z.string().optional(),
   CONTEXT7_API_KEY: z.string().optional(),
+  SUPABASE_CONNECTION_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

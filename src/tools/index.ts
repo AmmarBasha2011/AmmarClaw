@@ -1,5 +1,6 @@
 import { FunctionDeclaration, SchemaType } from '@google/generative-ai';
 import axios from 'axios';
+import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { googleService } from '../services/google.js';
@@ -58,9 +59,9 @@ export class ToolRegistry {
     if (rawName.startsWith('github__')) {
         cleanName = rawName.substring(8);
         detectedInstance = 'github';
-    } else if (rawName.startsWith('context7__')) {
+    } else if (rawName.startsWith('supabase__')) {
         cleanName = rawName.substring(10);
-        detectedInstance = 'context7';
+        detectedInstance = 'supabase';
     } else if (rawName.startsWith('mcp__')) {
         // Fallback for generic prefix
         cleanName = rawName.substring(5);
@@ -481,6 +482,75 @@ const getWebsiteContent: Tool = {
   }
 };
 
+// 5. CONTEXT7 (Native via CLI)
+async function runCtx7(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const env: any = { ...process.env };
+    if (config.CONTEXT7_API_KEY) {
+      env.CONTEXT7_API_KEY = config.CONTEXT7_API_KEY;
+    }
+
+    const child = spawn('npx', ['ctx7', ...args, '--json'], { env });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => { stdout += data; });
+    child.stderr.on('data', (data) => { stderr += data; });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr || `Process exited with code ${code}`));
+        return;
+      }
+      resolve(stdout);
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+const context7ResolveLibrary: Tool = {
+  name: 'context7_resolve_library',
+  description: 'Resolves a general library name into a Context7-compatible library ID.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      libraryName: { type: SchemaType.STRING, description: 'The name of the library to search for' },
+      query: { type: SchemaType.STRING, description: 'The user\'s question or task (used to rank results by relevance)' }
+    },
+    required: ['libraryName', 'query']
+  },
+  execute: async ({ libraryName, query }: { libraryName: string, query: string }) => {
+    try {
+      return await runCtx7(['library', libraryName, query]);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const context7QueryDocs: Tool = {
+  name: 'context7_query_docs',
+  description: 'Retrieves documentation for a library using a Context7-compatible library ID.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      libraryId: { type: SchemaType.STRING, description: 'Exact Context7-compatible library ID (e.g., /facebook/react)' },
+      query: { type: SchemaType.STRING, description: 'The user\'s question or task to get docs for' }
+    },
+    required: ['libraryId', 'query']
+  },
+  execute: async ({ libraryId, query }: { libraryId: string, query: string }) => {
+    try {
+      return await runCtx7(['docs', libraryId, query]);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
 // --- Registry ---
 export const registry = new ToolRegistry();
 const tools = [
@@ -489,6 +559,7 @@ const tools = [
   driveSearch, driveDeleteFile, driveCreateFolder,
   youtubeSearch, bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
   netlifyListSites, netlifyDeploy,
-  getCurrentTime, getWebsiteContent
+  getCurrentTime, getWebsiteContent,
+  context7ResolveLibrary, context7QueryDocs
 ];
 tools.forEach(t => registry.register(t));
