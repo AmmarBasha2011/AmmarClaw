@@ -7,6 +7,7 @@ import { MediaData } from './services/llm/index.js';
 import axios from 'axios';
 import { scheduler } from './services/scheduler.js';
 import { mcpService } from './services/mcp.js';
+import { registry } from './tools/index.js';
 
 const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 
@@ -95,11 +96,14 @@ bot.command('auth', async (ctx) => {
 
 bot.command('status', (ctx) => {
     const status = mcpService.getStatus();
+    const nativeCount = registry.getNativeToolsCount();
+    const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.11\n` +
+        `📦 *Code Version*: V1.2\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
-        `🛠 *MCP Tools*: ${status.toolCount} loaded`,
+        `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
+        `🚀 *Total Tools*: ${total} available`,
         { parse_mode: 'Markdown' }
     );
 });

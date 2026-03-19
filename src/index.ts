@@ -2,6 +2,7 @@ import { bot } from './bot.js';
 import { config } from './config/env.js';
 import { scheduler } from './services/scheduler.js';
 import { mcpService } from './services/mcp.js';
+import { registry } from './tools/index.js';
 import http from 'http';
 
 console.log("Starting AmmarClaw...");
@@ -27,20 +28,25 @@ async function main() {
         onStart: async (botInfo) => {
             const keyCount = config.GEMINI_API_KEYS.length;
             const mcpStatus = mcpService.getStatus();
+            const nativeToolCount = registry.getNativeToolsCount();
+            const totalTools = nativeToolCount + mcpStatus.toolCount;
+
             console.log(`Bot @${botInfo.username} is running.`);
             console.log(`Agent: Unlimited mode enabled.`);
             console.log(`Gemini: ${keyCount} API keys loaded.`);
             console.log(`MCP: ${mcpStatus.connected ? 'Connected' : 'Disconnected'} (${mcpStatus.toolCount} tools)`);
+            console.log(`Total Tools: ${totalTools}`);
             
             try {
                 await bot.api.sendMessage(
                     config.TELEGRAM_USER_ID, 
                     `🌙 *AmmarClaw is awake.*\n\n` +
                     `⚙️ *Mode*: Unlimited\n` +
-                    `📦 *Code Version*: V1.11\n` +
+                    `📦 *Code Version*: V1.2\n` +
                     `🔑 *Gemini Keys*: ${keyCount} loaded\n` +
                     `🔌 *MCP Status*: ${mcpStatus.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
-                    `🛠 *MCP Tools*: ${mcpStatus.toolCount} loaded`,
+                    `🛠 *MCP Tools*: ${mcpStatus.toolCount} loaded\n` +
+                    `🚀 *Total Tools*: ${totalTools} available`,
                     { parse_mode: 'Markdown' }
                 );
             } catch (error) {

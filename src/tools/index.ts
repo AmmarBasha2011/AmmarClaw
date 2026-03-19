@@ -1,6 +1,7 @@
 import { FunctionDeclaration, SchemaType } from '@google/generative-ai';
 import axios from 'axios';
 import { spawn } from 'child_process';
+import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { googleService } from '../services/google.js';
@@ -28,6 +29,10 @@ export class ToolRegistry {
 
   get(name: string): Tool | undefined {
     return this.tools.get(name);
+  }
+
+  getNativeToolsCount(): number {
+    return this.tools.size;
   }
 
   private sanitizeSchema(schema: any): any {
@@ -183,6 +188,149 @@ const writeFile: Tool = {
   }
 };
 
+const netlifyDeployDirectory: Tool = {
+  name: 'netlify_deploy_directory',
+  description: 'Deploy an entire directory to Netlify as a ZIP.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      site_id: { type: SchemaType.STRING, description: 'Optional Site ID' },
+      dir_path: { type: SchemaType.STRING, description: 'Directory path to deploy' }
+    },
+    required: ['dir_path']
+  },
+  execute: async ({ site_id, dir_path }: { site_id?: string, dir_path: string }) => {
+    try {
+      const headers = { Authorization: `Bearer ${config.NETLIFY_AUTH_TOKEN}` };
+      let targetId = site_id;
+      if (!targetId) {
+        const siteRes = await axios.post('https://api.netlify.com/api/v1/sites', {}, { headers: { ...headers, 'Content-Type': 'application/json' } });
+        targetId = siteRes.data.id;
+      }
+
+      const zipPath = path.join(process.cwd(), `deploy_${Date.now()}.zip`);
+      const safeDirPath = path.join(process.cwd(), dir_path.replace(/^(\.\.[/\\])+/, ''));
+
+      // Use zip CLI as it is available
+      await execAsync(`zip -r "${zipPath}" .`, { cwd: safeDirPath });
+
+      const zipContent = await fs.readFile(zipPath);
+      const deployRes = await axios.post(`https://api.netlify.com/api/v1/sites/${targetId}/deploys`, zipContent, {
+          headers: {
+              ...headers,
+              'Content-Type': 'application/zip'
+          }
+      });
+
+      await fs.unlink(zipPath);
+      return `Directory deployed successfully to: ${deployRes.data.url}`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const netlifyDeleteSite: Tool = {
+  name: 'netlify_delete_site',
+  description: 'Delete a Netlify site.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      site_id: { type: SchemaType.STRING, description: 'Site ID to delete' }
+    },
+    required: ['site_id']
+  },
+  execute: async ({ site_id }: { site_id: string }) => {
+    try {
+      await axios.delete(`https://api.netlify.com/api/v1/sites/${site_id}`, { headers: { Authorization: `Bearer ${config.NETLIFY_AUTH_TOKEN}` } });
+      return `Site ${site_id} deleted successfully.`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const netlifyGetSite: Tool = {
+  name: 'netlify_get_site',
+  description: 'Get details of a Netlify site.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      site_id: { type: SchemaType.STRING, description: 'Site ID' }
+    },
+    required: ['site_id']
+  },
+  execute: async ({ site_id }: { site_id: string }) => {
+    try {
+      const res = await axios.get(`https://api.netlify.com/api/v1/sites/${site_id}`, { headers: { Authorization: `Bearer ${config.NETLIFY_AUTH_TOKEN}` } });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const copyFile: Tool = {
+  name: 'copy_file',
+  description: 'Copy a file.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      source: { type: SchemaType.STRING, description: 'Source path' },
+      destination: { type: SchemaType.STRING, description: 'Destination path' }
+    },
+    required: ['source', 'destination']
+  },
+  execute: async ({ source, destination }: { source: string, destination: string }) => {
+    try {
+      const safeSource = path.join(process.cwd(), source.replace(/^(\.\.[/\\])+/, ''));
+      const safeDest = path.join(process.cwd(), destination.replace(/^(\.\.[/\\])+/, ''));
+      await fs.copyFile(safeSource, safeDest);
+      return `Successfully copied ${source} to ${destination}.`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const listFilesRecursive: Tool = {
+  name: 'list_files_recursive',
+  description: 'List all files in a directory and its subdirectories.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      path: { type: SchemaType.STRING, description: 'Relative path to start from (default: ".")' }
+    }
+  },
+  execute: async ({ path: dirPath }: { path?: string }) => {
+    try {
+      const root = path.join(process.cwd(), (dirPath || '.').replace(/^(\.\.[/\\])+/, ''));
+      const walk = async (dir: string): Promise<string[]> => {
+        let results: string[] = [];
+        const list = await fs.readdir(dir, { withFileTypes: true });
+        for (const file of list) {
+          const res = path.resolve(dir, file.name);
+          const rel = path.relative(root, res);
+          if (file.isDirectory()) {
+            results.push(`[DIR] ${rel}`);
+            results = results.concat(await walk(res));
+          } else {
+            results.push(`[FILE] ${rel}`);
+          }
+        }
+        return results;
+      };
+      const files = await walk(root);
+      return files.join('\n') || "Directory is empty.";
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
 // 6. JINA AI
 const jinaSearch: Tool = {
   name: 'jina_search',
@@ -273,12 +421,64 @@ const deleteFile: Tool = {
 
 const listFiles: Tool = {
   name: 'list_files',
-  description: 'List all files in the current workspace directory.',
-  parameters: { type: SchemaType.OBJECT, properties: {} },
-  execute: async () => {
+  description: 'List all files and directories in a given path (defaults to current workspace).',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      path: { type: SchemaType.STRING, description: 'Relative path to list (default: ".")' }
+    }
+  },
+  execute: async ({ path: dirPath }: { path?: string }) => {
     try {
-      const files = await fs.readdir(process.cwd());
-      return files.join('\n') || "Workspace is empty.";
+      const targetPath = path.join(process.cwd(), (dirPath || '.').replace(/^(\.\.[/\\])+/, ''));
+      const entries = await fs.readdir(targetPath, { withFileTypes: true });
+      return entries.map(e => `${e.isDirectory() ? '[DIR]' : '[FILE]'} ${e.name}`).join('\n') || "Directory is empty.";
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const createDirectory: Tool = {
+  name: 'create_directory',
+  description: 'Create a new directory.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      path: { type: SchemaType.STRING, description: 'Relative path for the new directory' }
+    },
+    required: ['path']
+  },
+  execute: async ({ path: dirPath }: { path: string }) => {
+    try {
+      const safePath = path.join(process.cwd(), dirPath.replace(/^(\.\.[/\\])+/, ''));
+      await fs.mkdir(safePath, { recursive: true });
+      return `Directory ${dirPath} created successfully.`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const moveFile: Tool = {
+  name: 'move_file',
+  description: 'Move or rename a file or directory.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      source: { type: SchemaType.STRING, description: 'Source path' },
+      destination: { type: SchemaType.STRING, description: 'Destination path' }
+    },
+    required: ['source', 'destination']
+  },
+  execute: async ({ source, destination }: { source: string, destination: string }) => {
+    try {
+      const safeSource = path.join(process.cwd(), source.replace(/^(\.\.[/\\])+/, ''));
+      const safeDest = path.join(process.cwd(), destination.replace(/^(\.\.[/\\])+/, ''));
+      await fs.rename(safeSource, safeDest);
+      return `Successfully moved ${source} to ${destination}.`;
     } catch (error: any) {
       return `Error: ${error.message}`;
     }
@@ -593,6 +793,18 @@ const getWebsiteContent: Tool = {
   }
 };
 
+const execAsync = promisify(spawnAsExec);
+function spawnAsExec(command: string, options: any, callback: any) {
+  const child = spawn('sh', ['-c', command], options);
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (data) => { stdout += data; });
+  child.stderr.on('data', (data) => { stderr += data; });
+  child.on('close', (code) => {
+    callback(code === 0 ? null : new Error(stderr), { stdout, stderr });
+  });
+}
+
 // 5. CONTEXT7 (Native via CLI)
 async function runCtx7(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -669,9 +881,10 @@ const tools = [
   gmailSearch, gmailSend, gmailDeleteMessage,
   driveSearch, driveDeleteFile, driveCreateFolder,
   youtubeSearch, bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
-  netlifyListSites, netlifyDeploy,
+  netlifyListSites, netlifyDeploy, netlifyDeployDirectory, netlifyDeleteSite, netlifyGetSite,
   getCurrentTime, getWebsiteContent,
   context7ResolveLibrary, context7QueryDocs,
-  jinaSearch, jinaReader
+  jinaSearch, jinaReader,
+  createDirectory, moveFile, copyFile, listFilesRecursive
 ];
 tools.forEach(t => registry.register(t));

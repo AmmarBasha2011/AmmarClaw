@@ -175,7 +175,8 @@ FORMATTING RULES (CRITICAL):
 
         if (attempt < maxRetries) {
            console.log(`[Gemini] Retrying with next key... (Attempt ${attempt + 1}/${maxRetries})`);
-           await new Promise(r => setTimeout(r, 500));
+           // Increase delay slightly for rate limits
+           await new Promise(r => setTimeout(r, 1000));
         } else {
            console.error("[Gemini] All keys failed.");
            throw error;
