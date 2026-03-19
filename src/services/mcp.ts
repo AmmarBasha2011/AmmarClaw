@@ -55,10 +55,16 @@ export class MCPService {
                 console.log(`[MCP] Reusing connection for ${instance.name}: ${connectionId}`);
             }
 
-            const connection = await createConnection({
+            const options: any = {
                 mcpUrl: instance.mcpUrl,
                 connectionId: connectionId,
-            });
+            };
+
+            if (instance.connectionIdKey === 'CONTEXT7_CONNECTION_ID' && config.CONTEXT7_API_KEY) {
+                options.apiKey = config.CONTEXT7_API_KEY;
+            }
+
+            const connection = await createConnection(options);
 
             instance.transport = connection.transport;
             instance.client = new Client(

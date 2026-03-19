@@ -16,6 +16,7 @@ const envSchema = z.object({
   SMITHERY_API_KEY: z.string().min(1, "Smithery API Key is required"),
   GITHUB_CONNECTION_ID: z.string().optional(),
   CONTEXT7_CONNECTION_ID: z.string().optional(),
+  CONTEXT7_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
