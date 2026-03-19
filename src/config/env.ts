@@ -23,6 +23,8 @@ const envSchema = z.object({
   NPM_CONNECTION_ID: z.string().optional(),
   FLIGHT_CONNECTION_ID: z.string().optional(),
   PYTHON_CONNECTION_ID: z.string().optional(),
+  GOOGLE_SCHOLAR_CONNECTION_ID: z.string().optional(),
+  JINA_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

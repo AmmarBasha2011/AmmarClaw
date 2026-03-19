@@ -33,7 +33,16 @@ export class ToolRegistry {
   private sanitizeSchema(schema: any): any {
     if (!schema || typeof schema !== 'object') return schema;
 
-    const newSchema = Array.isArray(schema) ? [] : { ...schema };
+    if (Array.isArray(schema)) {
+      return schema.map(item => this.sanitizeSchema(item));
+    }
+
+    const newSchema = { ...schema };
+
+    // Map types to Gemini supported types
+    if (newSchema.type === 'integer') {
+      newSchema.type = 'number';
+    }
 
     // Remove unsupported fields for Gemini
     const unsupportedFields = [
@@ -46,7 +55,10 @@ export class ToolRegistry {
         'anyOf',
         'oneOf',
         'allOf',
-        'not'
+        'not',
+        'default',
+        'examples',
+        'format'
     ];
 
     unsupportedFields.forEach(field => {
@@ -146,6 +158,51 @@ const writeFile: Tool = {
       const safePath = path.join(process.cwd(), filePath.replace(/^(\.\.[/\\])+/, ''));
       await fs.writeFile(safePath, content);
       return `File ${filePath} written successfully.`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+// 6. JINA AI
+const jinaSearch: Tool = {
+  name: 'jina_search',
+  description: 'Search the web using Jina AI and get SERP as LLM-friendly text.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      query: { type: SchemaType.STRING, description: 'Search query' }
+    },
+    required: ['query']
+  },
+  execute: async ({ query }: { query: string }) => {
+    try {
+      const headers: any = {};
+      if (config.JINA_API_KEY) headers['Authorization'] = `Bearer ${config.JINA_API_KEY}`;
+      const res = await axios.get(`https://s.jina.ai/${encodeURIComponent(query)}`, { headers });
+      return res.data;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const jinaReader: Tool = {
+  name: 'jina_reader',
+  description: 'Convert any URL to Markdown for better grounding LLMs using Jina Reader.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      url: { type: SchemaType.STRING, description: 'URL to read' }
+    },
+    required: ['url']
+  },
+  execute: async ({ url }: { url: string }) => {
+    try {
+      const headers: any = {};
+      if (config.JINA_API_KEY) headers['Authorization'] = `Bearer ${config.JINA_API_KEY}`;
+      const res = await axios.get(`https://r.jina.ai/${url}`, { headers });
+      return res.data;
     } catch (error: any) {
       return `Error: ${error.message}`;
     }
@@ -595,6 +652,7 @@ const tools = [
   youtubeSearch, bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
   netlifyListSites, netlifyDeploy,
   getCurrentTime, getWebsiteContent,
-  context7ResolveLibrary, context7QueryDocs
+  context7ResolveLibrary, context7QueryDocs,
+  jinaSearch, jinaReader
 ];
 tools.forEach(t => registry.register(t));

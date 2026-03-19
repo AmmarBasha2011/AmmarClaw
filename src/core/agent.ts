@@ -5,6 +5,7 @@ import { MemoryService } from '../services/memory.js';
 export class Agent {
   constructor(
     private llm: LLMProvider, 
+    private secondaryLLM: LLMProvider,
     private fallbackLLM: LLMProvider,
     private memory: MemoryService
   ) {}
@@ -50,12 +51,17 @@ export class Agent {
         console.log(`[Agent] Turn ${loopCount}: Calling Gemini...`);
         response = await this.llm.generate(chatHistory);
       } catch (error) {
-        console.error("[Agent] Gemini failed, switching to Groq fallback...", error);
+        console.error("[Agent] Gemini failed, switching to Jina secondary...", error);
         try {
-          response = await this.fallbackLLM.generate(chatHistory);
-        } catch (fallbackError) {
-          console.error("[Agent] Both LLMs failed.", fallbackError);
-          return "I'm having trouble thinking right now. Please try again later.";
+          response = await this.secondaryLLM.generate(chatHistory);
+        } catch (secondaryError) {
+            console.error("[Agent] Jina failed, switching to Groq fallback...", secondaryError);
+            try {
+              response = await this.fallbackLLM.generate(chatHistory);
+            } catch (fallbackError) {
+              console.error("[Agent] All LLMs failed.", fallbackError);
+              return "I'm having trouble thinking right now. Please try again later.";
+            }
         }
       }
 
@@ -142,7 +148,7 @@ export class Agent {
 
 // Export a singleton instance? Not really needed if we inject dependencies
 // But we use it in bot.ts
-import { geminiProvider, groqProvider } from '../services/llm/index.js';
+import { geminiProvider, jinaProvider, groqProvider } from '../services/llm/index.js';
 import { memory } from '../services/memory.js';
 
-export const agent = new Agent(geminiProvider, groqProvider, memory);
+export const agent = new Agent(geminiProvider, jinaProvider, groqProvider, memory);
