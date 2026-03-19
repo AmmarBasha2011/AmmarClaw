@@ -163,7 +163,10 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
 
     // 1. Regular Task Logic
     if (currentController) {
-        return ctx.reply("⚠️ Another task is already running. Use /end to stop it first.");
+        try {
+            await ctx.reply("⚠️ Another task is already running. Use /end to stop it first.");
+        } catch {}
+        return;
     }
 
     currentController = new AbortController();
@@ -183,10 +186,12 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
             await ctx.replyWithChatAction('typing');
         }, autoMode, currentController.signal, media);
 
-        try {
-            await ctx.reply(response, { parse_mode: 'Markdown' });
-        } catch {
-            await ctx.reply(response); // Fallback to plain text
+        if (response && response.trim().length > 0) {
+            try {
+                await ctx.reply(response, { parse_mode: 'Markdown' });
+            } catch {
+                await ctx.reply(response); // Fallback to plain text
+            }
         }
     } catch (error: any) {
         if (error.name === 'AbortError' || currentController?.signal.aborted) {

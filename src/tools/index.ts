@@ -58,7 +58,11 @@ export class ToolRegistry {
         'not',
         'default',
         'examples',
-        'format'
+        'format',
+        '$schema',
+        '$id',
+        'const',
+        'title'
     ];
 
     unsupportedFields.forEach(field => {
@@ -66,6 +70,21 @@ export class ToolRegistry {
             delete newSchema[field];
         }
     });
+
+    // Handle nullability and anyOf/oneOf
+    if (!newSchema.type) {
+      if (newSchema.anyOf && Array.isArray(newSchema.anyOf)) {
+        const firstWithType = newSchema.anyOf.find((item: any) => item.type);
+        if (firstWithType) newSchema.type = firstWithType.type;
+      } else if (newSchema.oneOf && Array.isArray(newSchema.oneOf)) {
+        const firstWithType = newSchema.oneOf.find((item: any) => item.type);
+        if (firstWithType) newSchema.type = firstWithType.type;
+      }
+    }
+
+    if (Array.isArray(newSchema.type)) {
+      newSchema.type = newSchema.type.find((t: string) => t !== 'null') || newSchema.type[0];
+    }
 
     // Recursively sanitize properties and items
     if (newSchema.properties) {
