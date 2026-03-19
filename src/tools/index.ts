@@ -54,13 +54,13 @@ export class ToolRegistry {
     let cleanName = rawName;
     let detectedInstance: string | undefined;
 
-    // Check for GitHub or Upstash prefixes
+    // Check for GitHub or Context7 prefixes
     if (rawName.startsWith('github__')) {
         cleanName = rawName.substring(8);
         detectedInstance = 'github';
-    } else if (rawName.startsWith('upstash__')) {
-        cleanName = rawName.substring(9);
-        detectedInstance = 'upstash';
+    } else if (rawName.startsWith('context7__')) {
+        cleanName = rawName.substring(10);
+        detectedInstance = 'context7';
     } else if (rawName.startsWith('mcp__')) {
         // Fallback for generic prefix
         cleanName = rawName.substring(5);

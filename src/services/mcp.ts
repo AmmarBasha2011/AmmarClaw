@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'UPSTASH_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'CONTEXT7_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -27,14 +27,14 @@ export class MCPService {
             mcpUrl: 'https://github.run.tools',
             connectionIdKey: 'GITHUB_CONNECTION_ID'
         });
-        this.instances.set('upstash', {
+        this.instances.set('context7', {
             client: null,
             transport: null,
             tools: [],
             isConnected: false,
-            name: 'Upstash',
+            name: 'Context7',
             mcpUrl: 'https://context7-mcp--upstash.run.tools',
-            connectionIdKey: 'UPSTASH_CONNECTION_ID'
+            connectionIdKey: 'CONTEXT7_CONNECTION_ID'
         });
     }
 
@@ -79,14 +79,16 @@ export class MCPService {
                 await updateEnv(instance.connectionIdKey, connection.connectionId);
                 // Update in-memory config for immediate /reload support
                 (config as any)[instance.connectionIdKey] = connection.connectionId;
-                try {
-                    await bot.api.sendMessage(
-                        config.TELEGRAM_USER_ID,
-                        `✅ *${instance.name} MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
-                        { parse_mode: 'Markdown' }
-                    );
-                } catch (_e) {}
             }
+
+            // Provide connection status and connection ID
+            try {
+                await bot.api.sendMessage(
+                    config.TELEGRAM_USER_ID,
+                    `✅ *${instance.name} MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
+                    { parse_mode: 'Markdown' }
+                );
+            } catch (_e) {}
 
             return true;
         } catch (error: any) {
