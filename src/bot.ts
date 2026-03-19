@@ -4,6 +4,7 @@ import { agent } from './core/agent.js';
 import { googleService } from './services/google.js';
 import { memory } from './services/memory.js';
 import { scheduler } from './services/scheduler.js';
+import { mcpService } from './services/mcp.js';
 
 const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 
@@ -31,6 +32,7 @@ bot.command('help', (ctx) => {
         "/schedule every [n] [unit] [task] - Automate a task\n" +
         "/schedules - List active automated tasks\n" +
         "/unschedule [id] - Remove a task\n" +
+        "/reload - Refresh MCP tools\n" +
         "/end - Stop current task\n" +
         "/status - Bot status\n" +
         "/clear - Clear history\n" +
@@ -90,7 +92,24 @@ bot.command('auth', async (ctx) => {
 });
 
 bot.command('status', (ctx) => {
-    ctx.reply("✅ AmmarClaw is running in *Unlimited* mode.", { parse_mode: 'Markdown' });
+    const status = mcpService.getStatus();
+    ctx.reply(
+        `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
+        `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
+        `🛠 *MCP Tools*: ${status.toolCount} loaded`,
+        { parse_mode: 'Markdown' }
+    );
+});
+
+bot.command('reload', async (ctx) => {
+    await ctx.reply("♻️ Reloading MCP tools...");
+    const success = await mcpService.reload();
+    const status = mcpService.getStatus();
+    if (success) {
+        await ctx.reply(`✅ MCP Reloaded! ${status.toolCount} tools available.`, { parse_mode: 'Markdown' });
+    } else {
+        await ctx.reply("❌ MCP Reload failed. Check logs.", { parse_mode: 'Markdown' });
+    }
 });
 
 bot.command('clear', async (ctx) => {
@@ -123,7 +142,7 @@ bot.on('message:text', async (ctx) => {
     if (text.startsWith('4/') && text.length > 20) {
         authCode = text;
     } else if (text.includes('code=4/')) {
-        try { const url = new URL(text); authCode = url.searchParams.get('code') || ''; } catch (err) { /* ignore */ }
+        try { const url = new URL(text); authCode = url.searchParams.get('code') || ''; } catch (_err) { /* ignore */ }
     }
 
     if (authCode) {

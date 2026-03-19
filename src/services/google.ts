@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+import type { OAuth2Client } from 'google-auth-library';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -58,7 +58,7 @@ export class GoogleService {
       oAuth2Client.setCredentials(tokens);
       this.auth = oAuth2Client;
       return this.auth;
-    } catch (error) {
+    } catch (_error) {
       console.warn("Google Auth token not found or invalid. Please run /auth.");
       return null;
     }

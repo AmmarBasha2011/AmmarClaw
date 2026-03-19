@@ -1,11 +1,12 @@
 # 🌙 AmmarClaw V1: Personal AI Assistant OS
 
-AmmarClaw is a private, powerful, and persistent AI agent that runs on Telegram and uses Google Gemini 3 Flash as its core brain. It is designed to act as a personal "Operating System" for your digital life, with native integrations for Google Workspace, GitHub, Netlify, and more.
+AmmarClaw is a private, powerful, and persistent AI agent that runs on Telegram and uses Google Gemini 3 Flash as its core brain. It is designed to act as a personal "Operating System" for your digital life, with native integrations for Google Workspace, GitHub (via MCP), Netlify, and more.
 
 ## 🚀 Key Features
 
 *   **Persistent Memory**: Uses **Supabase** (PostgreSQL) to remember every conversation, fact, and schedule permanently.
-*   **Comprehensive CRUD Tools**: Full control over local files, GitHub, Gmail, Google Drive, Blogger, and YouTube.
+*   **Model Context Protocol (MCP)**: Powered by **Smithery Connect** to integrate advanced tools dynamically. Currently uses the GitHub MCP server (`https://github.run.tools`) for superior repository management.
+*   **Comprehensive CRUD Tools**: Full control over local files, Gmail, Google Drive, Blogger, and YouTube.
 *   **Intelligent Automation**: Schedule any task to run automatically (e.g., "Check my emails every 1 hour").
 *   **Hybrid Intelligence**: Primarily uses `gemini-3-flash-preview` with an automatic fallback to `llama-3.3-70b` (via Groq) if Gemini fails or hits quotas.
 *   **Security First**: Whitelisted access for a single Telegram User ID, with explicit approval required for sensitive actions (unless `/auto` mode is used).
@@ -20,7 +21,8 @@ AmmarClaw is a private, powerful, and persistent AI agent that runs on Telegram 
 | `/schedule every [n] [unit] [task]` | Automate a task (e.g., `every 1 hour summarize Gmail`) |
 | `/schedules` | List all active automated tasks |
 | `/unschedule [id]` | Remove an automated task |
-| `/status` | Check if the bot and agent are online |
+| `/reload` | **NEW**: Reload MCP tools from Smithery Connect |
+| `/status` | Check bot status, MCP connection, and loaded tools |
 | `/clear` | Clear the current conversation history |
 | `/remove` | **CRITICAL**: Wipe ALL data from Supabase (History, Facts, Schedules) |
 | `/end` | Stop the current active task |
@@ -29,9 +31,10 @@ AmmarClaw is a private, powerful, and persistent AI agent that runs on Telegram 
 
 *   **Language**: TypeScript (Node.js 24+)
 *   **LLM**: Google Gemini 3 Flash & Groq (Llama 3.3)
+*   **MCP**: @modelcontextprotocol/sdk & @smithery/api
 *   **Database**: Supabase (Postgres)
 *   **Interface**: Telegram Bot API (via `grammy`)
-*   **Integrations**: Google APIs, Octokit (GitHub), Axios (Netlify/Maps)
+*   **Integrations**: Google APIs, Smithery Connect (GitHub MCP), Axios (Netlify/Maps)
 
 ## ⚙️ Setup & Deployment
 
@@ -50,6 +53,7 @@ TELEGRAM_BOT_TOKEN=your_token
 TELEGRAM_USER_ID=7337933185
 GEMINI_API_KEYS=key1,key2,key3
 GITHUB_TOKEN=your_github_pat
+SMITHERY_API_KEY=your_smithery_key
 NETLIFY_AUTH_TOKEN=your_netlify_token
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_service_role_key

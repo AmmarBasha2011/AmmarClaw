@@ -1,6 +1,7 @@
 import { bot } from './bot.js';
 import { config } from './config/env.js';
 import { scheduler } from './services/scheduler.js';
+import { mcpService } from './services/mcp.js';
 import http from 'http';
 
 console.log("Starting AmmarClaw...");
@@ -18,20 +19,27 @@ async function main() {
     // 1. Start Scheduler
     scheduler.start();
 
+    // 1.5 Start MCP
+    await mcpService.connect();
+
     // 2. Start Bot
     bot.start({
         onStart: async (botInfo) => {
             const keyCount = config.GEMINI_API_KEYS.length;
+            const mcpStatus = mcpService.getStatus();
             console.log(`Bot @${botInfo.username} is running.`);
             console.log(`Agent: Unlimited mode enabled.`);
             console.log(`Gemini: ${keyCount} API keys loaded.`);
+            console.log(`MCP: ${mcpStatus.connected ? 'Connected' : 'Disconnected'} (${mcpStatus.toolCount} tools)`);
             
             try {
                 await bot.api.sendMessage(
                     config.TELEGRAM_USER_ID, 
                     `🌙 *AmmarClaw is awake.*\n\n` +
                     `⚙️ *Mode*: Unlimited\n` +
-                    `🔑 *Gemini Keys*: ${keyCount} loaded`,
+                    `🔑 *Gemini Keys*: ${keyCount} loaded\n` +
+                    `🔌 *MCP Status*: ${mcpStatus.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
+                    `🛠 *MCP Tools*: ${mcpStatus.toolCount} loaded`,
                     { parse_mode: 'Markdown' }
                 );
             } catch (error) {

@@ -4,9 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { googleService } from '../services/google.js';
 import { config } from '../config/env.js';
-import { Octokit } from 'octokit';
-
-const octokit = new Octokit({ auth: config.GITHUB_TOKEN });
+import { mcpService } from '../services/mcp.js';
 
 export interface Tool {
   name: string;
@@ -32,22 +30,50 @@ export class ToolRegistry {
   }
 
   getFunctionDeclarations(): FunctionDeclaration[] {
-    return Array.from(this.tools.values()).map((tool) => ({
+    const nativeTools = Array.from(this.tools.values()).map((tool) => ({
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,
     }));
+
+    const mcpTools = mcpService.getTools().map((tool: any) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: tool.inputSchema.properties || {},
+            required: tool.inputSchema.required || []
+        }
+    }));
+
+    return [...nativeTools, ...mcpTools];
   }
 
   async execute(name: string, args: any): Promise<string> {
     const cleanName = name.includes(':') ? name.split(':').pop()! : name;
+    
+    // Check native tools first
     const tool = this.tools.get(cleanName);
-    if (!tool) throw new Error(`Tool ${cleanName} not found`);
-    try {
-      return await tool.execute(args);
-    } catch (error: any) {
-      return `Error executing tool ${name}: ${error.message}`;
+    if (tool) {
+        try {
+            return await tool.execute(args);
+        } catch (error: any) {
+            return `Error executing tool ${name}: ${error.message}`;
+        }
     }
+
+    // Check MCP tools
+    const mcpTools = mcpService.getTools();
+    const isMcpTool = mcpTools.some((t: any) => t.name === cleanName);
+    if (isMcpTool) {
+        try {
+            return await mcpService.callTool(cleanName, args);
+        } catch (error: any) {
+            return `Error executing MCP tool ${name}: ${error.message}`;
+        }
+    }
+
+    throw new Error(`Tool ${cleanName} not found`);
   }
 }
 
@@ -128,132 +154,6 @@ const listFiles: Tool = {
     try {
       const files = await fs.readdir(process.cwd());
       return files.join('\n') || "Workspace is empty.";
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-// 2. GITHUB CRUD
-const githubListRepos: Tool = {
-  name: 'github_list_repos',
-  description: 'List your GitHub repositories.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      per_page: { type: SchemaType.NUMBER, description: 'Number of results (default 10)' }
-    },
-    required: []
-  },
-  execute: async ({ per_page }: { per_page?: number }) => {
-    try {
-      const { data } = await octokit.rest.repos.listForAuthenticatedUser({ sort: 'updated', per_page: per_page || 10 });
-      return data.map(r => `• ${r.full_name} (${r.private ? 'Private' : 'Public'})`).join('\n') || "No repos found.";
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const githubCreateRepo: Tool = {
-  name: 'github_create_repo',
-  description: 'Create a new repository on GitHub.',
-  requiresApproval: true,
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      name: { type: SchemaType.STRING, description: 'Name of the repository' },
-      description: { type: SchemaType.STRING, description: 'Optional description' },
-      private: { type: SchemaType.BOOLEAN, description: 'Whether the repo should be private' }
-    },
-    required: ['name']
-  },
-  execute: async ({ name, description, private: isPrivate }: { name: string, description?: string, private?: boolean }) => {
-    try {
-      const { data } = await octokit.rest.repos.createForAuthenticatedUser({ name, description, private: isPrivate ?? true });
-      return `Repository created: ${data.html_url}`;
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const githubCreateIssue: Tool = {
-  name: 'github_create_issue',
-  description: 'Create an issue in a repository.',
-  requiresApproval: true,
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      owner: { type: SchemaType.STRING, description: 'Owner of the repo' },
-      repo: { type: SchemaType.STRING, description: 'Name of the repo' },
-      title: { type: SchemaType.STRING, description: 'Issue title' },
-      body: { type: SchemaType.STRING, description: 'Issue body' }
-    },
-    required: ['owner', 'repo', 'title']
-  },
-  execute: async ({ owner, repo, title, body }: { owner: string, repo: string, title: string, body?: string }) => {
-    try {
-      const { data } = await octokit.rest.issues.create({ owner, repo, title, body });
-      return `Issue created: ${data.html_url}`;
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const githubCreateGist: Tool = {
-  name: 'github_create_gist',
-  description: 'Create a new GitHub Gist.',
-  requiresApproval: true,
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      description: { type: SchemaType.STRING, description: 'Gist description' },
-      filename: { type: SchemaType.STRING, description: 'Name of the file' },
-      content: { type: SchemaType.STRING, description: 'Content of the file' },
-      public: { type: SchemaType.BOOLEAN, description: 'Whether public' }
-    },
-    required: ['filename', 'content']
-  },
-  execute: async ({ description, filename, content, public: isPublic }: { description?: string, filename: string, content: string, public?: boolean }) => {
-    try {
-      const { data } = await octokit.rest.gists.create({ description, public: isPublic ?? false, files: { [filename]: { content } } });
-      return `Gist created: ${data.html_url}`;
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const githubGetNotifications: Tool = {
-  name: 'github_get_notifications',
-  description: 'Get your recent unread GitHub notifications.',
-  parameters: { type: SchemaType.OBJECT, properties: {} },
-  execute: async () => {
-    try {
-      const { data } = await octokit.rest.activity.listNotificationsForAuthenticatedUser({ per_page: 5 });
-      return data.map(n => `• [${n.reason}] ${n.subject.title} (${n.repository.full_name})`).join('\n') || "No unread notifications.";
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const githubSearchIssuesPr: Tool = {
-  name: 'github_search_issues_pr',
-  description: 'Search for issues and pull requests on GitHub.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      q: { type: SchemaType.STRING, description: 'Search query' }
-    },
-    required: ['q']
-  },
-  execute: async ({ q }: { q: string }) => {
-    try {
-      const { data } = await octokit.rest.search.issuesAndPullRequests({ q, per_page: 5 });
-      return data.items.map(item => `• [#${item.number}] ${item.title}`).join('\n') || "No results found.";
     } catch (error: any) {
       return `Error: ${error.message}`;
     }
@@ -572,7 +472,6 @@ const getWebsiteContent: Tool = {
 export const registry = new ToolRegistry();
 const tools = [
   writeFile, readFile, deleteFile, listFiles,
-  githubListRepos, githubCreateRepo, githubCreateIssue, githubCreateGist, githubGetNotifications, githubSearchIssuesPr,
   gmailSearch, gmailSend, gmailDeleteMessage,
   driveSearch, driveDeleteFile, driveCreateFolder,
   youtubeSearch, bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,

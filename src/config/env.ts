@@ -13,6 +13,7 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().min(1, "Supabase URL is required"),
   SUPABASE_KEY: z.string().min(1, "Supabase Key is required"),
   DB_PATH: z.string().default('./memory.db'),
+  SMITHERY_API_KEY: z.string().min(1, "Smithery API Key is required"),
 });
 
 const parsed = envSchema.safeParse(process.env);
