@@ -11,11 +11,15 @@ export class MCPService {
 
     async connect() {
         try {
-            console.log("[MCP] Connecting to Smithery GitHub MCP (https://github.run.tools)...");
+            console.log(`[MCP] Connecting to Smithery GitHub MCP (https://github.run.tools)...`);
+            if (config.GITHUB_CONNECTION_ID) {
+                console.log(`[MCP] Reusing connection: ${config.GITHUB_CONNECTION_ID}`);
+            }
             
             // Smithery Connect will use process.env.SMITHERY_API_KEY by default
             const connection = await createConnection({
                 mcpUrl: "https://github.run.tools",
+                connectionId: config.GITHUB_CONNECTION_ID,
                 // handshake: true // Enable if we need server version
             });
 
@@ -32,22 +36,30 @@ export class MCPService {
             const { tools } = await this.client.listTools();
             this.tools = tools;
             
-            console.log(`[MCP] Connected successfully. Retrieved ${tools.length} tools.`);
-            return true;
-        } catch (error: any) {
-            if (error instanceof SmitheryAuthorizationError) {
-                console.warn(`[MCP] Auth required: ${error.authorizationUrl}`);
-                // Notify user via Telegram if possible (this might be called before bot is fully ready, 
-                // but onStart in index.ts handles the first call)
+            console.log(`[MCP] Connected successfully. Connection ID: ${connection.connectionId}. Retrieved ${tools.length} tools.`);
+            
+            // If it's a new connection, inform the user to save it
+            if (!config.GITHUB_CONNECTION_ID) {
                 try {
                     await bot.api.sendMessage(
                         config.TELEGRAM_USER_ID,
-                        `🔗 *GitHub MCP Authorization Required*\n\nPlease visit this URL to authorize GitHub:\n${error.authorizationUrl}\n\nAfter authorizing, use /reload to refresh tools.`,
+                        `✅ *GitHub MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\nTo persist this connection and avoid re-authorizing, add this to your \`.env\`:\n\`GITHUB_CONNECTION_ID=${connection.connectionId}\``,
                         { parse_mode: 'Markdown' }
                     );
-                } catch (_e) {
-                    // Bot might not be started yet
-                }
+                } catch (_e) {}
+            }
+
+            return true;
+        } catch (error: any) {
+            if (error instanceof SmitheryAuthorizationError) {
+                console.warn(`[MCP] Auth required for connection ${error.connectionId}: ${error.authorizationUrl}`);
+                try {
+                    await bot.api.sendMessage(
+                        config.TELEGRAM_USER_ID,
+                        `🔗 *GitHub MCP Authorization Required*\n\nPlease visit this URL to authorize GitHub:\n${error.authorizationUrl}\n\n*Important*: After authorizing, add this to your \`.env\` to keep the connection:\n\`GITHUB_CONNECTION_ID=${error.connectionId}\`\n\nThen use /reload to refresh tools.`,
+                        { parse_mode: 'Markdown' }
+                    );
+                } catch (_e) {}
             } else {
                 console.error("[MCP] Connection Error:", error.message);
             }
