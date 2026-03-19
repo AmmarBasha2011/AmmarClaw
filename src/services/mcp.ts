@@ -61,7 +61,9 @@ export class MCPService {
             };
 
             if (instance.connectionIdKey === 'CONTEXT7_CONNECTION_ID' && config.CONTEXT7_API_KEY) {
-                options.apiKey = config.CONTEXT7_API_KEY;
+                options.headers = {
+                    'CONTEXT7_API_KEY': config.CONTEXT7_API_KEY
+                };
             }
 
             const connection = await createConnection(options);
