@@ -4,48 +4,85 @@ import { bot } from "../bot.js";
 import { config } from "../config/env.js";
 import { updateEnv } from "../utils/env.js";
 
+interface MCPInstance {
+    client: Client | null;
+    transport: any;
+    tools: any[];
+    isConnected: boolean;
+    name: string;
+    mcpUrl: string;
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'UPSTASH_CONNECTION_ID';
+}
+
 export class MCPService {
-    private client: Client | null = null;
-    private transport: any = null;
-    private tools: any[] = [];
-    private isConnected: boolean = false;
+    private instances: Map<string, MCPInstance> = new Map();
+
+    constructor() {
+        this.instances.set('github', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'GitHub',
+            mcpUrl: 'https://github.run.tools',
+            connectionIdKey: 'GITHUB_CONNECTION_ID'
+        });
+        this.instances.set('upstash', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Upstash',
+            mcpUrl: 'https://context7-mcp--upstash.run.tools',
+            connectionIdKey: 'UPSTASH_CONNECTION_ID'
+        });
+    }
 
     async connect() {
+        const results = await Promise.all(
+            Array.from(this.instances.keys()).map(key => this.connectInstance(key))
+        );
+        return results.some(r => r === true);
+    }
+
+    private async connectInstance(key: string) {
+        const instance = this.instances.get(key)!;
+        const connectionId = config[instance.connectionIdKey];
+
         try {
-            console.log(`[MCP] Connecting to Smithery GitHub MCP (https://github.run.tools)...`);
-            if (config.GITHUB_CONNECTION_ID) {
-                console.log(`[MCP] Reusing connection: ${config.GITHUB_CONNECTION_ID}`);
+            console.log(`[MCP] Connecting to ${instance.name} MCP (${instance.mcpUrl})...`);
+            if (connectionId) {
+                console.log(`[MCP] Reusing connection for ${instance.name}: ${connectionId}`);
             }
-            
-            // Smithery Connect will use process.env.SMITHERY_API_KEY by default
+
             const connection = await createConnection({
-                mcpUrl: "https://github.run.tools",
-                connectionId: config.GITHUB_CONNECTION_ID,
-                // handshake: true // Enable if we need server version
+                mcpUrl: instance.mcpUrl,
+                connectionId: connectionId,
             });
 
-            this.transport = connection.transport;
-
-            this.client = new Client(
+            instance.transport = connection.transport;
+            instance.client = new Client(
                 { name: "AmmarClaw", version: "1.0.0" },
                 { capabilities: {} }
             );
 
-            await this.client.connect(this.transport);
-            this.isConnected = true;
+            await instance.client.connect(instance.transport);
+            instance.isConnected = true;
 
-            const { tools } = await this.client.listTools();
-            this.tools = tools;
-            
-            console.log(`[MCP] Connected successfully. Connection ID: ${connection.connectionId}. Retrieved ${tools.length} tools.`);
-            
-            // If it's a new connection or re-connected, auto-save it
-            if (!config.GITHUB_CONNECTION_ID || config.GITHUB_CONNECTION_ID !== connection.connectionId) {
-                await updateEnv('GITHUB_CONNECTION_ID', connection.connectionId);
+            const { tools } = await instance.client.listTools();
+            instance.tools = tools;
+
+            console.log(`[MCP] ${instance.name} connected successfully. Connection ID: ${connection.connectionId}. Retrieved ${tools.length} tools.`);
+
+            // Auto-save connection ID if changed or new
+            if (connectionId !== connection.connectionId) {
+                await updateEnv(instance.connectionIdKey, connection.connectionId);
+                // Update in-memory config for immediate /reload support
+                (config as any)[instance.connectionIdKey] = connection.connectionId;
                 try {
                     await bot.api.sendMessage(
                         config.TELEGRAM_USER_ID,
-                        `✅ *GitHub MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
+                        `✅ *${instance.name} MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
                         { parse_mode: 'Markdown' }
                     );
                 } catch (_e) {}
@@ -54,54 +91,90 @@ export class MCPService {
             return true;
         } catch (error: any) {
             if (error instanceof SmitheryAuthorizationError) {
-                console.warn(`[MCP] Auth required for connection ${error.connectionId}: ${error.authorizationUrl}`);
-                await updateEnv('GITHUB_CONNECTION_ID', error.connectionId);
+                console.warn(`[MCP] Auth required for ${instance.name} connection ${error.connectionId}: ${error.authorizationUrl}`);
+                await updateEnv(instance.connectionIdKey, error.connectionId);
+                // Update in-memory config for immediate /reload support
+                (config as any)[instance.connectionIdKey] = error.connectionId;
                 try {
                     await bot.api.sendMessage(
                         config.TELEGRAM_USER_ID,
-                        `🔗 *GitHub MCP Authorization Required*\n\nPlease visit this URL to authorize GitHub:\n${error.authorizationUrl}\n\n*Important*: After authorizing, use /reload to refresh tools.\n\n_Connection ID has been automatically saved to your .env file._`,
+                        `🔗 *${instance.name} MCP Authorization Required*\n\nPlease visit this URL to authorize:\n${error.authorizationUrl}\n\n*Important*: After authorizing, use /reload to refresh tools.\n\n_Connection ID has been automatically saved to your .env file._`,
                         { parse_mode: 'Markdown' }
                     );
                 } catch (_e) {}
             } else {
-                console.error("[MCP] Connection Error:", error.message);
+                console.error(`[MCP] ${instance.name} Connection Error:`, error.message);
             }
-            this.isConnected = false;
+            instance.isConnected = false;
             return false;
         }
     }
 
     async reload() {
-        if (this.client) {
-            try {
-                await this.client.close();
-            } catch (_e) {
-                // Ignore close errors
+        for (const instance of this.instances.values()) {
+            if (instance.client) {
+                try {
+                    await instance.client.close();
+                } catch (_e) {}
             }
         }
         return await this.connect();
     }
 
     getTools() {
-        return this.tools;
+        // Flat list of all tools from all connected instances
+        // We'll add a metadata property to each tool to help with routing
+        const allTools: any[] = [];
+        for (const [key, instance] of this.instances.entries()) {
+            if (instance.isConnected) {
+                allTools.push(...instance.tools.map(t => ({ ...t, _mcp_instance: key })));
+            }
+        }
+        return allTools;
     }
 
     getStatus() {
+        let connectedCount = 0;
+        let toolCount = 0;
+        for (const instance of this.instances.values()) {
+            if (instance.isConnected) {
+                connectedCount++;
+                toolCount += instance.tools.length;
+            }
+        }
         return {
-            connected: this.isConnected,
-            toolCount: this.tools.length
+            connected: connectedCount > 0,
+            connectedCount,
+            totalInstances: this.instances.size,
+            toolCount
         };
     }
 
-    async callTool(name: string, args: any) {
-        if (!this.client || !this.isConnected) {
-            throw new Error("MCP Client not connected");
+    async callTool(name: string, args: any, instanceKey?: string) {
+        // Find which instance has this tool
+        let targetInstance: MCPInstance | null = null;
+
+        if (instanceKey && this.instances.has(instanceKey)) {
+            targetInstance = this.instances.get(instanceKey)!;
+        } else {
+            // Search all instances if key not provided
+            for (const instance of this.instances.values()) {
+                if (instance.tools.some(t => t.name === name)) {
+                    targetInstance = instance;
+                    break;
+                }
+            }
         }
-        const result = await this.client.callTool({
+
+        if (!targetInstance || !targetInstance.client || !targetInstance.isConnected) {
+            throw new Error(`MCP tool ${name} not found in ${instanceKey || 'any'} instance or not connected`);
+        }
+
+        const result = await targetInstance.client.callTool({
             name,
             arguments: args
         });
-        
+
         if (result.content && Array.isArray(result.content)) {
             return result.content.map((c: any) => {
                 if (c.type === 'text') return c.text;

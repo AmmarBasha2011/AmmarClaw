@@ -37,7 +37,7 @@ export class ToolRegistry {
     }));
 
     const mcpTools = mcpService.getTools().map((tool: any) => ({
-        name: `mcp__${tool.name}`,
+        name: `${tool._mcp_instance}__${tool.name}`,
         description: tool.description,
         parameters: {
             type: SchemaType.OBJECT,
@@ -52,15 +52,22 @@ export class ToolRegistry {
   async execute(name: string, args: any): Promise<string> {
     const rawName = name.includes(':') ? name.split(':').pop()! : name;
     let cleanName = rawName;
-    let isMcpPrefix = false;
+    let detectedInstance: string | undefined;
 
-    if (rawName.startsWith('mcp__')) {
+    // Check for GitHub or Upstash prefixes
+    if (rawName.startsWith('github__')) {
+        cleanName = rawName.substring(8);
+        detectedInstance = 'github';
+    } else if (rawName.startsWith('upstash__')) {
+        cleanName = rawName.substring(9);
+        detectedInstance = 'upstash';
+    } else if (rawName.startsWith('mcp__')) {
+        // Fallback for generic prefix
         cleanName = rawName.substring(5);
-        isMcpPrefix = true;
     }
     
-    // Check native tools first (only if not explicitly prefixed as MCP)
-    if (!isMcpPrefix) {
+    // Check native tools first (only if no explicit instance prefix detected)
+    if (!detectedInstance) {
         const tool = this.tools.get(cleanName);
         if (tool) {
             try {
@@ -72,17 +79,14 @@ export class ToolRegistry {
     }
 
     // Check MCP tools
-    const mcpTools = mcpService.getTools();
-    const isMcpTool = mcpTools.some((t: any) => t.name === cleanName);
-    if (isMcpTool) {
-        try {
-            return await mcpService.callTool(cleanName, args);
-        } catch (error: any) {
-            return `Error executing MCP tool ${name}: ${error.message}`;
+    try {
+        return await mcpService.callTool(cleanName, args, detectedInstance);
+    } catch (error: any) {
+        if (error.message.includes('not found')) {
+            throw new Error(`Tool ${cleanName} not found`);
         }
+        return `Error executing MCP tool ${name}: ${error.message}`;
     }
-
-    throw new Error(`Tool ${cleanName} not found`);
   }
 }
 
