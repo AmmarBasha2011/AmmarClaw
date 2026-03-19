@@ -30,21 +30,44 @@ export class ToolRegistry {
     return this.tools.get(name);
   }
 
+  private sanitizeSchema(schema: any): any {
+    if (!schema || typeof schema !== 'object') return schema;
+
+    const newSchema = Array.isArray(schema) ? [] : { ...schema };
+
+    // Remove unsupported fields for Gemini
+    if (newSchema.additionalProperties !== undefined) {
+      delete newSchema.additionalProperties;
+    }
+
+    // Recursively sanitize properties and items
+    if (newSchema.properties) {
+      for (const key in newSchema.properties) {
+        newSchema.properties[key] = this.sanitizeSchema(newSchema.properties[key]);
+      }
+    }
+    if (newSchema.items) {
+      newSchema.items = this.sanitizeSchema(newSchema.items);
+    }
+
+    return newSchema;
+  }
+
   getFunctionDeclarations(): FunctionDeclaration[] {
     const nativeTools = Array.from(this.tools.values()).map((tool) => ({
       name: tool.name,
       description: tool.description,
-      parameters: tool.parameters,
+      parameters: this.sanitizeSchema(tool.parameters),
     }));
 
     const mcpTools = mcpService.getTools().map((tool: any) => ({
         name: `${tool._mcp_instance}__${tool.name}`,
         description: tool.description,
-        parameters: {
+        parameters: this.sanitizeSchema({
             type: SchemaType.OBJECT,
             properties: tool.inputSchema.properties || {},
             required: tool.inputSchema.required || []
-        }
+        })
     }));
 
     return [...nativeTools, ...mcpTools];
