@@ -169,7 +169,15 @@ FORMATTING RULES (CRITICAL):
       } catch (error: any) {
         console.error(`[Gemini] Key ${this.currentKeyIndex} failed: ${error.message}`);
 
-        // Always rotate and retry for any error to exhaust all keys
+        if (error.status === 429) {
+            // Extract wait time
+            const delayMatch = error.message.match(/retry in (\d+)s/);
+            const delay = delayMatch ? parseInt(delayMatch[1]) : 60;
+            // Throw special error for 429 to be caught by Agent
+            throw new Error(`QUOTA_EXCEEDED:${delay}`);
+        }
+
+        // Always rotate and retry for other errors to exhaust all keys
         this.rotateKey();
         attempt++;
 

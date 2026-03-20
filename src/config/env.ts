@@ -24,6 +24,10 @@ const envSchema = z.object({
   FLIGHT_CONNECTION_ID: z.string().optional(),
   PYTHON_CONNECTION_ID: z.string().optional(),
   GOOGLE_SCHOLAR_CONNECTION_ID: z.string().optional(),
+  YOUTUBE_CONNECTION_ID: z.string().optional(),
+  PUBMED_CONNECTION_ID: z.string().optional(),
+  DDG_CONNECTION_ID: z.string().optional(),
+  WIKI_CONNECTION_ID: z.string().optional(),
   JINA_API_KEY: z.string().optional(),
 });
 

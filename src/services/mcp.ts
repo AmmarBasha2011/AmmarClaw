@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -98,6 +98,42 @@ export class MCPService {
             name: 'Google Scholar',
             mcpUrl: 'https://google-scholar-mcp--mochow13.run.tools',
             connectionIdKey: 'GOOGLE_SCHOLAR_CONNECTION_ID'
+        });
+        this.instances.set('youtube', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'YouTube',
+            mcpUrl: 'https://youtube.run.tools',
+            connectionIdKey: 'YOUTUBE_CONNECTION_ID'
+        });
+        this.instances.set('pubmed', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'PubMed',
+            mcpUrl: 'https://pubmed-mcp-server--jackkuo666.run.tools',
+            connectionIdKey: 'PUBMED_CONNECTION_ID'
+        });
+        this.instances.set('duckduckgo', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'DuckDuckGo',
+            mcpUrl: 'https://duckduckgo-mcp-server--nickclyde.run.tools',
+            connectionIdKey: 'DDG_CONNECTION_ID'
+        });
+        this.instances.set('wikipedia', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Wikipedia',
+            mcpUrl: 'https://simple-mcp-server--yuvraj1898.run.tools',
+            connectionIdKey: 'WIKI_CONNECTION_ID'
         });
     }
 

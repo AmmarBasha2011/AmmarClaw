@@ -7,6 +7,8 @@ import path from 'path';
 import { googleService } from '../services/google.js';
 import { config } from '../config/env.js';
 import { mcpService } from '../services/mcp.js';
+import { bot } from '../bot.js';
+import { InputFile } from 'grammy';
 
 export interface Tool {
   name: string;
@@ -213,7 +215,7 @@ const netlifyDeployDirectory: Tool = {
       const safeDirPath = path.join(process.cwd(), dir_path.replace(/^(\.\.[/\\])+/, ''));
 
       // Use zip CLI as it is available
-      await execAsync(`zip -r "${zipPath}" .`, { cwd: safeDirPath });
+      await execAsync(`zip -r "${zipPath}" .`, { cwd: safeDirPath } as any);
 
       const zipContent = await fs.readFile(zipPath);
       const deployRes = await axios.post(`https://api.netlify.com/api/v1/sites/${targetId}/deploys`, zipContent, {
@@ -327,6 +329,169 @@ const listFilesRecursive: Tool = {
       return files.join('\n') || "Directory is empty.";
     } catch (error: any) {
       return `Error: ${error.message}`;
+    }
+  }
+};
+
+const sendTelegramMedia: Tool = {
+  name: 'send_telegram_media',
+  description: 'Send a photo, video, audio, or document directly to the Telegram chat.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      type: { type: SchemaType.STRING, enum: ['photo', 'video', 'audio', 'document'], description: 'Type of media to send' },
+      path: { type: SchemaType.STRING, description: 'Relative path to the file to send' },
+      caption: { type: SchemaType.STRING, description: 'Optional caption' }
+    },
+    required: ['type', 'path']
+  },
+  execute: async ({ type, path: filePath, caption }: { type: string, path: string, caption?: string }) => {
+    try {
+      const safePath = path.join(process.cwd(), filePath.replace(/^(\.\.[/\\])+/, ''));
+      const file = new InputFile(safePath);
+      if (type === 'photo') await bot.api.sendPhoto(config.TELEGRAM_USER_ID, file, { caption });
+      else if (type === 'video') await bot.api.sendVideo(config.TELEGRAM_USER_ID, file, { caption });
+      else if (type === 'audio') await bot.api.sendAudio(config.TELEGRAM_USER_ID, file, { caption });
+      else if (type === 'document') await bot.api.sendDocument(config.TELEGRAM_USER_ID, file, { caption });
+      return `Successfully sent ${type} to user.`;
+    } catch (error: any) {
+      return `Error sending media: ${error.message}`;
+    }
+  }
+};
+
+const calculator: Tool = {
+  name: 'calculator',
+  description: 'Perform advanced mathematical calculations using Python.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      expression: { type: SchemaType.STRING, description: 'The math expression to evaluate (e.g., "sqrt(25) + 10 * 5")' }
+    },
+    required: ['expression']
+  },
+  execute: async ({ expression }: { expression: string }) => {
+    try {
+        const pythonCode = `import math; print(eval("${expression.replace(/"/g, '\\"')}"))`;
+        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
+        return stdout.trim();
+    } catch (error: any) {
+        return `Error: ${error.message}`;
+    }
+  }
+};
+
+const generateQrCode: Tool = {
+  name: 'generate_qr_code',
+  description: 'Generate a QR code from text or a URL and save it as an image.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      data: { type: SchemaType.STRING, description: 'The text or URL to encode' },
+      filename: { type: SchemaType.STRING, description: 'Output filename (e.g., "qrcode.png")' }
+    },
+    required: ['data', 'filename']
+  },
+  execute: async ({ data, filename }: { data: string, filename: string }) => {
+    try {
+        const pythonCode = `import qrcode; img = qrcode.make("${data.replace(/"/g, '\\"')}"); img.save("${filename.replace(/"/g, '\\"')}")`;
+        await execAsync(`python3 -c '${pythonCode}'`, {} as any);
+        return `QR code generated and saved to ${filename}.`;
+    } catch (error: any) {
+        return `Error: ${error.message}`;
+    }
+  }
+};
+
+const duckduckgoSearch: Tool = {
+  name: 'duckduckgo_search',
+  description: 'Search the web using DuckDuckGo.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      query: { type: SchemaType.STRING, description: 'Search query' },
+      type: { type: SchemaType.STRING, enum: ['text', 'images', 'news', 'videos'], description: 'Search type (default: text)' },
+      max_results: { type: SchemaType.NUMBER, description: 'Max results (default: 5)' }
+    },
+    required: ['query']
+  },
+  execute: async ({ query, type, max_results }: { query: string, type?: string, max_results?: number }) => {
+    try {
+        const searchType = type || 'text';
+        const limit = max_results || 5;
+        const pythonCode = `from duckduckgo_search import DDGS; results = list(DDGS().${searchType}("${query.replace(/"/g, '\\"')}", max_results=${limit})); import json; print(json.dumps(results))`;
+        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
+        return stdout;
+    } catch (error: any) {
+        return `Error: ${error.message}`;
+    }
+  }
+};
+
+const wikipediaSearch: Tool = {
+  name: 'wikipedia_search',
+  description: 'Search Wikipedia and get page summaries.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      query: { type: SchemaType.STRING, description: 'Search query' }
+    },
+    required: ['query']
+  },
+  execute: async ({ query }: { query: string }) => {
+    try {
+        const pythonCode = `import wikipediaapi; wiki = wikipediaapi.Wikipedia("AmmarClaw/1.25 (ammar@example.com)", "en"); page = wiki.page("${query.replace(/"/g, '\\"')}"); print(page.summary[:5000] if page.exists() else "Page not found.")`;
+        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
+        return stdout;
+    } catch (error: any) {
+        return `Error: ${error.message}`;
+    }
+  }
+};
+
+const devdocsSearch: Tool = {
+  name: 'devdocs_search',
+  description: 'Search DevDocs documentation.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      query: { type: SchemaType.STRING, description: 'The search query (e.g., "react", "python socket")' }
+    },
+    required: ['query']
+  },
+  execute: async ({ query }: { query: string }) => {
+    try {
+        const url = `https://devdocs.io/#q=${encodeURIComponent(query)}`;
+        const res = await axios.get(`https://r.jina.ai/${url}`);
+        return res.data;
+    } catch (error: any) {
+        return `Error searching DevDocs: ${error.message}`;
+    }
+  }
+};
+
+const telegraphCreatePage: Tool = {
+  name: 'telegraph_create_page',
+  description: 'Create a richly formatted page on Telegra.ph.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      title: { type: SchemaType.STRING, description: 'Page title' },
+      content: { type: SchemaType.STRING, description: 'HTML content or Markdown (will be converted)' },
+      author_name: { type: SchemaType.STRING, description: 'Optional author name' }
+    },
+    required: ['title', 'content']
+  },
+  execute: async ({ title, content, author_name }: { title: string, content: string, author_name?: string }) => {
+    try {
+        const pythonCode = `from telegraph import Telegraph; t = Telegraph(); t.create_account(short_name="AmmarClaw"); response = t.create_page("${title.replace(/"/g, '\\"')}", html_content="${content.replace(/"/g, '\\"')}", author_name="${(author_name || 'AmmarClaw').replace(/"/g, '\\"')}"); print(response['url'])`;
+        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
+        return `Page created: ${stdout.trim()}`;
+    } catch (error: any) {
+        return `Error creating Telegraph page: ${error.message}`;
     }
   }
 };
@@ -652,29 +817,7 @@ const driveCreateFolder: Tool = {
   }
 };
 
-// 4. OTHER TOOLS (YOUTUBE, BLOGGER, MAPS, NETLIFY)
-const youtubeSearch: Tool = {
-  name: 'youtube_search',
-  description: 'Search for videos on YouTube.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      q: { type: SchemaType.STRING, description: 'Query' },
-      maxResults: { type: SchemaType.NUMBER, description: 'Results' }
-    },
-    required: ['q']
-  },
-  execute: async ({ q, maxResults }: { q: string, maxResults?: number }) => {
-    try {
-      const youtube = await googleService.youtube();
-      const res = await youtube.search.list({ part: ['snippet'], q, maxResults: maxResults || 5, type: ['video'] });
-      return res.data.items?.map(i => `• ${i.snippet?.title} (https://www.youtube.com/watch?v=${i.id?.videoId})`).join('\n') || "No videos found.";
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
+// 4. OTHER TOOLS (BLOGGER, MAPS, NETLIFY)
 const bloggerListBlogs: Tool = {
   name: 'blogger_list_blogs',
   description: 'List your blogs.',
@@ -902,11 +1045,12 @@ const tools = [
   writeFile, readFile, deleteFile, listFiles,
   gmailSearch, gmailSend, gmailDeleteMessage,
   driveSearch, driveDeleteFile, driveCreateFolder,
-  youtubeSearch, bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
+  bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
   netlifyListSites, netlifyDeploy, netlifyDeployDirectory, netlifyDeleteSite, netlifyGetSite,
   getCurrentTime, getWebsiteContent,
   context7ResolveLibrary, context7QueryDocs,
-  jinaSearch, jinaReader,
-  createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory
+  jinaReader,
+  createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory,
+  sendTelegramMedia, calculator, generateQrCode, duckduckgoSearch, wikipediaSearch, devdocsSearch, telegraphCreatePage
 ];
 tools.forEach(t => registry.register(t));

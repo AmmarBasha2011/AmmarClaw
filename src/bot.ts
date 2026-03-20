@@ -102,7 +102,7 @@ bot.command('status', (ctx) => {
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.21\n` +
+        `📦 *Code Version*: V1.25\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
         `🚀 *Total Tools*: ${total} available`,
@@ -199,9 +199,20 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
 
     let processedText = text;
     let autoMode = false;
-    if (text.toLowerCase().startsWith('/auto ')) {
-        processedText = text.substring(6).trim();
+    let mode: 'normal' | 'plan' | 'thinking' = 'normal';
+
+    // Flexible parsing for /auto and /mode at start or end
+    const autoRegex = /\/auto\b/gi;
+    if (autoRegex.test(processedText)) {
         autoMode = true;
+        processedText = processedText.replace(autoRegex, '').trim();
+    }
+
+    const modeRegex = /\/mode\s+(normal|plan|thinking)\b/gi;
+    const modeMatch = modeRegex.exec(processedText);
+    if (modeMatch) {
+        mode = modeMatch[1] as any;
+        processedText = processedText.replace(modeRegex, '').trim();
     }
 
     try {
@@ -211,6 +222,8 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
             await ctx.replyWithChatAction('typing');
         }, autoMode, currentController.signal, media, async (msg) => {
             await ctx.reply(`🔄 *${msg}*...`, { parse_mode: 'Markdown' });
+        }, mode, async (thoughts) => {
+            await ctx.reply(`💡 *AI Thinking*:\n${thoughts}`, { parse_mode: 'Markdown' });
         });
 
         if (response && response.trim().length > 0) {
@@ -254,6 +267,12 @@ bot.on('message:text', async (ctx) => {
             await ctx.reply(`❌ *Auth Failed*: ${error.message}`);
             return;
         }
+    }
+
+    // Handle /mode command
+    if (text.startsWith('/mode ')) {
+        await ctx.reply("Please provide your command along with the mode, e.g., `/mode plan [task]`");
+        return;
     }
 
     if (text.toLowerCase() === 'approve') {

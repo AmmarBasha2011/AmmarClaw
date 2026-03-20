@@ -2,6 +2,8 @@ import { registry } from '../tools/index.js';
 import { LLMProvider, ChatMessage, MediaData } from '../services/llm/index.js';
 import { MemoryService } from '../services/memory.js';
 
+export type AgentMode = 'normal' | 'plan' | 'thinking';
+
 export class Agent {
   constructor(
     private llm: LLMProvider, 
@@ -17,10 +19,14 @@ export class Agent {
     autoMode: boolean = false,
     signal?: AbortSignal,
     media?: MediaData[],
-    onFallback?: (provider: string) => Promise<void>
+    onFallback?: (provider: string) => Promise<void>,
+    mode: AgentMode = 'normal',
+    onThinking?: (thoughts: string) => Promise<void>
   ): Promise<string> {
     // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
     await this.memory.addMessage('user', input);
+
+    let currentPlan: { task: string, completed: boolean }[] = [];
 
     let loopCount = 0;
     while (true) {
@@ -47,10 +53,42 @@ export class Agent {
       }
 
       // 3. Call LLM
-      let response;
+      let response: any;
       try {
         console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
+
+        let promptWithPlan = input;
+        if (mode === 'plan') {
+            if (loopCount === 1) {
+                promptWithPlan = `SYSTEM: You are in PLAN MODE. First, analyze the task and create a numbered list of sub-tasks needed to complete it. Then start executing them one by one.\n\nUSER INPUT: ${input}`;
+            } else if (currentPlan.length > 0) {
+                const planStr = currentPlan.map((t, i) => `${i+1}. ${t.task} [${t.completed ? '✅' : '⏳'}]`).join('\n');
+                promptWithPlan = `SYSTEM: Current Plan:\n${planStr}\n\nContinue with the next step.`;
+            }
+        }
+
         response = await this.llm.generate(chatHistory, "gemini-3-flash-preview");
+
+        // Mode Specific logic
+        if (response.rawParts) {
+            const thoughts = response.rawParts.find((p: any) => (p as any).thought)?.thought || response.text;
+
+            if (mode === 'thinking' && onThinking) {
+                await onThinking(thoughts);
+            }
+
+            if (mode === 'plan') {
+                // If we haven't extracted a plan yet, or if the model just gave us one
+                if (loopCount === 1) {
+                    const lines = response.text.split('\n');
+                    const planLines = lines.filter((l: string) => /^\d+\./.test(l.trim()));
+                    if (planLines.length > 0) {
+                        currentPlan = planLines.map((l: string) => ({ task: l.replace(/^\d+\.\s*/, '').trim(), completed: false }));
+                        if (onThinking) await onThinking(`Switching to Plan Mode\n\n` + currentPlan.map((t, i) => `${i+1}. ${t.task} ⏳`).join('\n'));
+                    }
+                }
+            }
+        }
       } catch (error: any) {
         console.warn("[Agent] Gemini Primary failed. Trying Gemini Lite...");
         if (onFallback) await onFallback("Switching to smaller model");
@@ -72,8 +110,13 @@ export class Agent {
                   response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b");
                 } catch (fallbackError: any) {
                   console.error("[Agent] All LLMs failed.", fallbackError);
-                  const delayMatch = error.message.match(/retry in (\d+)s/);
-                  const delay = delayMatch ? delayMatch[1] : "some";
+                  let delay = "some";
+                  if (error.message.startsWith('QUOTA_EXCEEDED:')) {
+                      delay = error.message.split(':')[1];
+                  } else {
+                      const delayMatch = error.message.match(/retry in (\d+)s/);
+                      if (delayMatch) delay = delayMatch[1];
+                  }
                   return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
                 }
             }
@@ -122,6 +165,18 @@ export class Agent {
           
           // Store Tool Result
           await this.memory.addMessage('function', result, call.name);
+
+          // If in plan mode, try to mark tasks as completed
+          if (mode === 'plan' && currentPlan.length > 0) {
+              const uncompleted = currentPlan.find(t => !t.completed);
+              if (uncompleted) {
+                  uncompleted.completed = true;
+                  if (onThinking) {
+                      const planStr = currentPlan.map((t, i) => `${i+1}. ${t.task} ${t.completed ? '✅' : '⏳'}`).join('\n');
+                      await onThinking(planStr);
+                  }
+              }
+          }
         }
 
         // After tool execution, loop back to LLM for next thought
