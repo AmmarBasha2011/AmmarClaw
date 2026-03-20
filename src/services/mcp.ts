@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID' | 'GMAIL_CONNECTION_ID' | 'EXCALIDRAW_CONNECTION_ID' | 'CANVA_CONNECTION_ID' | 'MAPS_CONNECTION_ID' | 'CHARTS_CONNECTION_ID' | 'PAYPAL_CONNECTION_ID' | 'EXCEL_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -134,6 +134,69 @@ export class MCPService {
             name: 'Wikipedia',
             mcpUrl: 'https://simple-mcp-server--yuvraj1898.run.tools',
             connectionIdKey: 'WIKI_CONNECTION_ID'
+        });
+        this.instances.set('gmail', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Gmail',
+            mcpUrl: 'https://gmail.run.tools',
+            connectionIdKey: 'GMAIL_CONNECTION_ID'
+        });
+        this.instances.set('excalidraw', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Excalidraw',
+            mcpUrl: 'https://excalidraw-mcp-server--heygom.run.tools',
+            connectionIdKey: 'EXCALIDRAW_CONNECTION_ID'
+        });
+        this.instances.set('canva', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Canva',
+            mcpUrl: 'https://canva-mcp-server--pksolanki2000.run.tools',
+            connectionIdKey: 'CANVA_CONNECTION_ID'
+        });
+        this.instances.set('google-maps', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Google Maps',
+            mcpUrl: 'https://google-maps.run.tools',
+            connectionIdKey: 'MAPS_CONNECTION_ID'
+        });
+        this.instances.set('charts', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Charts',
+            mcpUrl: 'https://charts-mcp-server--pksolanki2000.run.tools',
+            connectionIdKey: 'CHARTS_CONNECTION_ID'
+        });
+        this.instances.set('paypal', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'PayPal',
+            mcpUrl: 'https://paypal-mcp-server--pksolanki2000.run.tools',
+            connectionIdKey: 'PAYPAL_CONNECTION_ID'
+        });
+        this.instances.set('excel', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Excel',
+            mcpUrl: 'https://excel-mcp-server--pksolanki2000.run.tools',
+            connectionIdKey: 'EXCEL_CONNECTION_ID'
         });
     }
 

@@ -108,13 +108,13 @@ export class ToolRegistry {
 
   getFunctionDeclarations(): FunctionDeclaration[] {
     const nativeTools = Array.from(this.tools.values()).map((tool) => ({
-      name: tool.name,
+      name: `native__${tool.name}`,
       description: tool.description,
       parameters: this.sanitizeSchema(tool.parameters),
     }));
 
     const mcpTools = mcpService.getTools().map((tool: any) => ({
-        name: `${tool._mcp_instance}__${tool.name}`,
+        name: `mcp__${tool._mcp_instance}__${tool.name}`,
         description: tool.description,
         parameters: this.sanitizeSchema({
             type: SchemaType.OBJECT,
@@ -127,21 +127,9 @@ export class ToolRegistry {
   }
 
   async execute(name: string, args: any): Promise<string> {
-    const rawName = name.includes(':') ? name.split(':').pop()! : name;
-    let cleanName = rawName;
-    let detectedInstance: string | undefined;
-
-    if (rawName.includes('__')) {
-        const parts = rawName.split('__');
-        const prefix = parts[0];
-        if (prefix !== 'mcp') {
-            detectedInstance = prefix;
-        }
-        cleanName = parts.slice(1).join('__');
-    }
-    
-    // Check native tools first (only if no explicit instance prefix detected)
-    if (!detectedInstance) {
+    // Determine source from prefix
+    if (name.startsWith('native__')) {
+        const cleanName = name.replace('native__', '');
         const tool = this.tools.get(cleanName);
         if (tool) {
             try {
@@ -150,9 +138,40 @@ export class ToolRegistry {
                 return `Error executing tool ${name}: ${error.message}`;
             }
         }
+        throw new Error(`Native tool ${cleanName} not found`);
     }
 
-    // Check MCP tools
+    if (name.startsWith('mcp__')) {
+        const parts = name.split('__');
+        const instance = parts[1];
+        const toolName = parts.slice(2).join('__');
+
+        try {
+            return await mcpService.callTool(toolName, args, instance);
+        } catch (error: any) {
+            return `Error executing MCP tool ${name}: ${error.message}`;
+        }
+    }
+
+    // Fallback for older signatures if any remain in history
+    const rawName = name.includes(':') ? name.split(':').pop()! : name;
+    let cleanName = rawName;
+    let detectedInstance: string | undefined;
+
+    if (rawName.includes('__')) {
+        const parts = rawName.split('__');
+        const prefix = parts[0];
+        if (prefix !== 'mcp' && prefix !== 'native') {
+            detectedInstance = prefix;
+        }
+        cleanName = parts.slice(1).join('__');
+    }
+
+    const nativeTool = this.tools.get(cleanName);
+    if (nativeTool && !detectedInstance) {
+        return await nativeTool.execute(args);
+    }
+
     try {
         return await mcpService.callTool(cleanName, args, detectedInstance);
     } catch (error: any) {
@@ -1112,83 +1131,7 @@ const moveFile: Tool = {
   }
 };
 
-// 3. GOOGLE WORKSPACE CRUD (GMAIL/DRIVE)
-const gmailSearch: Tool = {
-  name: 'gmail_search',
-  description: 'Search for emails in Gmail.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      query: { type: SchemaType.STRING, description: 'Search query' },
-      maxResults: { type: SchemaType.NUMBER, description: 'Max results (default 5)' }
-    },
-    required: ['query']
-  },
-  execute: async ({ query, maxResults }: { query: string, maxResults?: number }) => {
-    try {
-      const gmail = await googleService.gmail();
-      const res = await gmail.users.messages.list({ userId: 'me', q: query, maxResults: maxResults || 5 });
-      if (!res.data.messages) return "No messages found.";
-      const messages = await Promise.all(res.data.messages.map(async (m) => {
-        const detail = await gmail.users.messages.get({ userId: 'me', id: m.id! });
-        return `From: ${detail.data.payload?.headers?.find(h => h.name === 'From')?.value}\nSubject: ${detail.data.payload?.headers?.find(h => h.name === 'Subject')?.value}\nSnippet: ${detail.data.snippet}\n---`;
-      }));
-      return messages.join('\n');
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const gmailSend: Tool = {
-  name: 'gmail_send',
-  description: 'Send an email.',
-  requiresApproval: true,
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      to: { type: SchemaType.STRING, description: 'Recipient' },
-      subject: { type: SchemaType.STRING, description: 'Subject' },
-      body: { type: SchemaType.STRING, description: 'Body' }
-    },
-    required: ['to', 'subject', 'body']
-  },
-  execute: async ({ to, subject, body }: { to: string, subject: string, body: string }) => {
-    try {
-      const gmail = await googleService.gmail();
-      const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
-      const message = [`To: ${to}`, 'Content-Type: text/plain; charset=utf-8', 'MIME-Version: 1.0', `Subject: ${utf8Subject}`, '', body].join('\n');
-      const encoded = Buffer.from(message).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      await gmail.users.messages.send({ userId: 'me', requestBody: { raw: encoded } });
-      return "Email sent successfully.";
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const gmailDeleteMessage: Tool = {
-  name: 'gmail_delete_message',
-  description: 'Delete a specific email message by ID.',
-  requiresApproval: true,
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      id: { type: SchemaType.STRING, description: 'The ID of the message to delete' }
-    },
-    required: ['id']
-  },
-  execute: async ({ id }: { id: string }) => {
-    try {
-      const gmail = await googleService.gmail();
-      await gmail.users.messages.delete({ userId: 'me', id });
-      return "Message deleted successfully.";
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
+// 3. GOOGLE WORKSPACE CRUD (DRIVE)
 const driveSearch: Tool = {
   name: 'drive_search',
   description: 'Search for files in Google Drive.',
@@ -1469,7 +1412,6 @@ const context7QueryDocs: Tool = {
 export const registry = new ToolRegistry();
 const tools = [
   writeFile, readFile, deleteFile, listFiles,
-  gmailSearch, gmailSend, gmailDeleteMessage,
   driveSearch, driveDeleteFile, driveCreateFolder,
   bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
   netlifyListSites, netlifyDeploy, netlifyDeployDirectory, netlifyDeleteSite, netlifyGetSite,

@@ -32,7 +32,7 @@ bot.command('start', (ctx) => ctx.reply('🌙 AmmarClaw is online and ready. Typ
 
 bot.command('help', (ctx) => {
     ctx.reply(
-        "🛠 *AmmarClaw V1.25 OS Commands*:\n\n" +
+        "🛠 *AmmarClaw V1.3 OS Commands*:\n\n" +
         "/auth - Link accounts (Google/YouTube/GitHub)\n" +
         "/auto [task] - Run without manual tool approvals\n" +
         "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
@@ -110,7 +110,7 @@ bot.command('status', (ctx) => {
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.25\n` +
+        `📦 *Code Version*: V1.3\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
         `🚀 *Total Tools*: ${total} available`,
