@@ -28,6 +28,9 @@ const envSchema = z.object({
   PUBMED_CONNECTION_ID: z.string().optional(),
   DDG_CONNECTION_ID: z.string().optional(),
   WIKI_CONNECTION_ID: z.string().optional(),
+  JULES_API_KEY: z.string().optional(),
+  STITCH_API_KEY: z.string().optional(),
+  KOYEB_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

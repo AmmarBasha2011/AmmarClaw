@@ -190,6 +190,378 @@ const writeFile: Tool = {
   }
 };
 
+const koyebListDeployments: Tool = {
+  name: 'koyeb_list_deployments',
+  description: 'List Koyeb deployments.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      serviceId: { type: SchemaType.STRING, description: 'Optional Service ID to filter' }
+    }
+  },
+  execute: async ({ serviceId }: { serviceId?: string }) => {
+    try {
+      const res = await axios.get('https://api.koyeb.com/v1/deployments', {
+        params: { service_id: serviceId },
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const koyebListInstances: Tool = {
+  name: 'koyeb_list_instances',
+  description: 'List Koyeb instances.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      serviceId: { type: SchemaType.STRING, description: 'Optional Service ID to filter' }
+    }
+  },
+  execute: async ({ serviceId }: { serviceId?: string }) => {
+    try {
+      const res = await axios.get('https://api.koyeb.com/v1/instances', {
+        params: { service_id: serviceId },
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const koyebListDomains: Tool = {
+  name: 'koyeb_list_domains',
+  description: 'List your Koyeb domains.',
+  parameters: { type: SchemaType.OBJECT, properties: {} },
+  execute: async () => {
+    try {
+      const res = await axios.get('https://api.koyeb.com/v1/domains', {
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const koyebListSecrets: Tool = {
+  name: 'koyeb_list_secrets',
+  description: 'List your Koyeb secrets.',
+  parameters: { type: SchemaType.OBJECT, properties: {} },
+  execute: async () => {
+    try {
+      const res = await axios.get('https://api.koyeb.com/v1/secrets', {
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const stitchListProjects: Tool = {
+  name: 'stitch_list_projects',
+  description: 'List all your Google Stitch projects.',
+  parameters: { type: SchemaType.OBJECT, properties: {} },
+  execute: async () => {
+    try {
+      const res = await axios.get('https://stitch.googleapis.com/v1/projects', {
+        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const stitchListScreens: Tool = {
+  name: 'stitch_list_screens',
+  description: 'List all screens in a Google Stitch project.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      projectId: { type: SchemaType.STRING, description: 'The project ID' }
+    },
+    required: ['projectId']
+  },
+  execute: async ({ projectId }: { projectId: string }) => {
+    try {
+      const res = await axios.get(`https://stitch.googleapis.com/v1/${projectId}/screens`, {
+        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const stitchGetScreen: Tool = {
+  name: 'stitch_get_screen',
+  description: 'Get details and HTML content of a Google Stitch screen.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      projectId: { type: SchemaType.STRING, description: 'The project ID' },
+      screenId: { type: SchemaType.STRING, description: 'The screen ID' }
+    },
+    required: ['projectId', 'screenId']
+  },
+  execute: async ({ projectId, screenId }: { projectId: string, screenId: string }) => {
+    try {
+      const res = await axios.get(`https://stitch.googleapis.com/v1/${projectId}/screens/${screenId}`, {
+        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const julesListSessions: Tool = {
+  name: 'jules_list_sessions',
+  description: 'List all coding sessions in Jules.',
+  parameters: { type: SchemaType.OBJECT, properties: {} },
+  execute: async () => {
+    try {
+      const res = await axios.get('https://jules.googleapis.com/v1alpha/sessions', {
+        headers: { 'x-goog-api-key': config.JULES_API_KEY }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const julesListActivities: Tool = {
+  name: 'jules_list_activities',
+  description: 'List activities for a specific Jules session.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      sessionId: { type: SchemaType.STRING, description: 'The session ID' }
+    },
+    required: ['sessionId']
+  },
+  execute: async ({ sessionId }: { sessionId: string }) => {
+    try {
+      const res = await axios.get(`https://jules.googleapis.com/v1alpha/${sessionId}/activities`, {
+        headers: { 'x-goog-api-key': config.JULES_API_KEY }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+// 7. JULES API
+const julesListSources: Tool = {
+  name: 'jules_list_sources',
+  description: 'List available sources (repositories) in Jules.',
+  parameters: { type: SchemaType.OBJECT, properties: {} },
+  execute: async () => {
+    try {
+      const res = await axios.get('https://jules.googleapis.com/v1alpha/sources', {
+        headers: { 'x-goog-api-key': config.JULES_API_KEY }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const julesCreateSession: Tool = {
+  name: 'jules_create_session',
+  description: 'Create a new coding session in Jules.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      sourceId: { type: SchemaType.STRING, description: 'The source ID' },
+      instruction: { type: SchemaType.STRING, description: 'Task instruction' }
+    },
+    required: ['sourceId', 'instruction']
+  },
+  execute: async ({ sourceId, instruction }: { sourceId: string, instruction: string }) => {
+    try {
+      const res = await axios.post('https://jules.googleapis.com/v1alpha/sessions', {
+        source: sourceId,
+        instruction: instruction
+      }, {
+        headers: { 'x-goog-api-key': config.JULES_API_KEY }
+      });
+      return `Session created: ${res.data.name}`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const julesGetSession: Tool = {
+  name: 'jules_get_session',
+  description: 'Get details and status of a Jules session.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      sessionId: { type: SchemaType.STRING, description: 'The session ID (e.g. sessions/123)' }
+    },
+    required: ['sessionId']
+  },
+  execute: async ({ sessionId }: { sessionId: string }) => {
+    try {
+      const res = await axios.get(`https://jules.googleapis.com/v1alpha/${sessionId}`, {
+        headers: { 'x-goog-api-key': config.JULES_API_KEY }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+// 8. GOOGLE STITCH API
+const stitchCreateProject: Tool = {
+  name: 'stitch_create_project',
+  description: 'Create a new project in Google Stitch.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      title: { type: SchemaType.STRING, description: 'Project title' }
+    },
+    required: ['title']
+  },
+  execute: async ({ title }: { title: string }) => {
+    try {
+      const res = await axios.post('https://stitch.googleapis.com/v1/projects', { title }, {
+        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      });
+      return `Project created: ${res.data.name}`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const stitchGenerateScreen: Tool = {
+  name: 'stitch_generate_screen',
+  description: 'Generate a UI screen from text prompt in Google Stitch.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      projectId: { type: SchemaType.STRING, description: 'The project ID' },
+      prompt: { type: SchemaType.STRING, description: 'UI description prompt' }
+    },
+    required: ['projectId', 'prompt']
+  },
+  execute: async ({ projectId, prompt }: { projectId: string, prompt: string }) => {
+    try {
+      const res = await axios.post(`https://stitch.googleapis.com/v1/${projectId}/screens:generate`, { prompt }, {
+        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      });
+      return `Screen generation started. Task: ${res.data.name}`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const stitchGetProject: Tool = {
+  name: 'stitch_get_project',
+  description: 'Get details of a Google Stitch project.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      projectId: { type: SchemaType.STRING, description: 'The project ID' }
+    },
+    required: ['projectId']
+  },
+  execute: async ({ projectId }: { projectId: string }) => {
+    try {
+      const res = await axios.get(`https://stitch.googleapis.com/v1/${projectId}`, {
+        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+// 9. KOYEB API
+const koyebListApps: Tool = {
+  name: 'koyeb_list_apps',
+  description: 'List your Koyeb applications.',
+  parameters: { type: SchemaType.OBJECT, properties: {} },
+  execute: async () => {
+    try {
+      const res = await axios.get('https://api.koyeb.com/v1/apps', {
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const koyebListServices: Tool = {
+  name: 'koyeb_list_services',
+  description: 'List Koyeb services.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      appId: { type: SchemaType.STRING, description: 'Optional Application ID to filter' }
+    }
+  },
+  execute: async ({ appId }: { appId?: string }) => {
+    try {
+      const res = await axios.get('https://api.koyeb.com/v1/services', {
+        params: { app_id: appId },
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
+const koyebGetApp: Tool = {
+  name: 'koyeb_get_app',
+  description: 'Get details of a Koyeb application.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      appId: { type: SchemaType.STRING, description: 'Application ID or Name' }
+    },
+    required: ['appId']
+  },
+  execute: async ({ appId }: { appId: string }) => {
+    try {
+      const res = await axios.get(`https://api.koyeb.com/v1/apps/${appId}`, {
+        headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
+      });
+      return JSON.stringify(res.data, null, 2);
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
 const netlifyDeployDirectory: Tool = {
   name: 'netlify_deploy_directory',
   description: 'Deploy an entire directory to Netlify as a ZIP.',
@@ -348,7 +720,11 @@ const sendTelegramMedia: Tool = {
   },
   execute: async ({ type, path: filePath, caption }: { type: string, path: string, caption?: string }) => {
     try {
-      const safePath = path.join(process.cwd(), filePath.replace(/^(\.\.[/\\])+/, ''));
+      const safePath = path.resolve(process.cwd(), filePath.replace(/^(\.\.[/\\])+/, ''));
+
+      // Verify file exists before sending
+      await fs.access(safePath);
+
       const file = new InputFile(safePath);
       if (type === 'photo') await bot.api.sendPhoto(config.TELEGRAM_USER_ID, file, { caption });
       else if (type === 'video') await bot.api.sendVideo(config.TELEGRAM_USER_ID, file, { caption });
@@ -356,7 +732,8 @@ const sendTelegramMedia: Tool = {
       else if (type === 'document') await bot.api.sendDocument(config.TELEGRAM_USER_ID, file, { caption });
       return `Successfully sent ${type} to user.`;
     } catch (error: any) {
-      return `Error sending media: ${error.message}`;
+        console.error(`[Tool:send_telegram_media] Failed to send ${type}:`, error.message);
+        return `Error sending media: ${error.message}. Ensure the file exists and the path is correct.`;
     }
   }
 };
@@ -1100,6 +1477,9 @@ const tools = [
   context7ResolveLibrary, context7QueryDocs,
   createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory,
   zipDirectory, unzipFile, searchFilesContent,
-  sendTelegramMedia, calculator, generateQrCode, duckduckgoSearch, wikipediaSearch, devdocsSearch, telegraphCreatePage
+  sendTelegramMedia, calculator, generateQrCode, duckduckgoSearch, wikipediaSearch, devdocsSearch, telegraphCreatePage,
+  julesListSources, julesCreateSession, julesGetSession, julesListSessions, julesListActivities,
+  stitchCreateProject, stitchGenerateScreen, stitchGetProject, stitchListProjects, stitchListScreens, stitchGetScreen,
+  koyebListApps, koyebGetApp, koyebListServices, koyebListDeployments, koyebListInstances, koyebListDomains, koyebListSecrets
 ];
 tools.forEach(t => registry.register(t));

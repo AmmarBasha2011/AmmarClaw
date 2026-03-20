@@ -46,7 +46,7 @@ export class Agent {
       }
 
       // 2. Get History from DB and convert to ChatMessage[]
-      const dbHistory = await this.memory.getHistory(10);
+      const dbHistory = await this.memory.getHistory(40);
       const chatHistory: ChatMessage[] = dbHistory.map(m => ({
         role: m.role as 'user' | 'assistant' | 'function',
         content: m.content,

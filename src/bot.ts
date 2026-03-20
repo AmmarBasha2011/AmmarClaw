@@ -164,18 +164,23 @@ bot.command('end', (ctx) => {
         return ctx.reply("No task is currently running.");
     }
     currentController.abort();
-    // currentController = null; // Removed to let finally block handle it and avoid race conditions
+    currentController = null; // Re-enabled for immediate task termination feedback and to allow immediate restart
     ctx.reply("🛑 Task has been stopped.");
 });
 
-async function downloadFile(fileId: string): Promise<{ data: string, mimeType: string }> {
+async function downloadFile(fileId: string): Promise<{ data: string, mimeType: string, isText: boolean, textContent?: string }> {
     const file = await bot.api.getFile(fileId);
     const url = `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
     const response = await axios.get(url, { responseType: 'arraybuffer' });
     const buffer = Buffer.from(response.data);
 
     let mimeType = 'application/octet-stream';
+    let isText = false;
+    let textContent: string | undefined;
+
     const ext = file.file_path?.split('.').pop()?.toLowerCase();
+    const textExts = ['txt', 'js', 'ts', 'py', 'json', 'md', 'html', 'css', 'mjs', 'cjs', 'xml', 'yaml', 'yml', 'env'];
+
     if (['jpg', 'jpeg'].includes(ext!)) mimeType = 'image/jpeg';
     else if (ext === 'png') mimeType = 'image/png';
     else if (ext === 'webp') mimeType = 'image/webp';
@@ -184,21 +189,28 @@ async function downloadFile(fileId: string): Promise<{ data: string, mimeType: s
     else if (ext === 'mp3') mimeType = 'audio/mpeg';
     else if (ext === 'wav') mimeType = 'audio/wav';
     else if (ext === 'pdf') mimeType = 'application/pdf';
+    else if (textExts.includes(ext!) || !ext) {
+        // Fallback to text if extension is known text type or missing
+        isText = true;
+        textContent = buffer.toString('utf8');
+        mimeType = 'text/plain';
+    }
 
     return {
         data: buffer.toString('base64'),
-        mimeType
+        mimeType,
+        isText,
+        textContent
     };
 }
 
 async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
     const userId = ctx.from.id.toString();
 
-    // 1. Regular Task Logic
+    // 1. Task Lock Logic
     if (currentController) {
-        try {
-            await ctx.reply("⚠️ Another task is already running. Use /end to stop it first.");
-        } catch {}
+        // If a task is already running, we save the message so the active agent can see it in history
+        await memory.addMessage('user', text);
         return;
     }
 
@@ -234,6 +246,9 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
     }
 
     try {
+        // agent.run already adds to memory, so we pass the original text
+        // But since we added it manually above, we should adjust agent.run or here.
+        // Actually, let's keep agent.run as the source of truth for the START of a task.
         const response = await agent.run(userId, processedText, async (name, args, status) => {
             if (status === 'executing') await ctx.reply(`🛠 AI Using Tool [${name}]`);
             if (status === 'completed') await ctx.reply(`✅ AI Used Tool [${name}]`);
@@ -307,6 +322,7 @@ bot.on('message:text', async (ctx) => {
 
 bot.on(['message:photo', 'message:video', 'message:audio', 'message:document'], async (ctx) => {
     let fileId: string | undefined;
+    let fileName: string | undefined;
     let text = ctx.message.caption || "Please analyze this file.";
 
     if (ctx.message.photo) {
@@ -317,13 +333,20 @@ bot.on(['message:photo', 'message:video', 'message:audio', 'message:document'], 
         fileId = ctx.message.audio.file_id;
     } else if (ctx.message.document) {
         fileId = ctx.message.document.file_id;
+        fileName = ctx.message.document.file_name;
     }
 
     if (fileId) {
         try {
             await ctx.replyWithChatAction('typing');
-            const media = await downloadFile(fileId);
-            await handleAgentRun(ctx, text, [media]);
+            const download = await downloadFile(fileId);
+
+            if (download.isText) {
+                const combinedText = `[File: ${fileName || 'unnamed'}]\n\n${download.textContent}\n\n${text}`;
+                await handleAgentRun(ctx, combinedText);
+            } else {
+                await handleAgentRun(ctx, text, [{ data: download.data, mimeType: download.mimeType }]);
+            }
         } catch (error: any) {
             console.error("Media processing error:", error);
             await ctx.reply(`❌ Failed to process media: ${error.message}`);
