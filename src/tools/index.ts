@@ -526,51 +526,6 @@ const telegraphCreatePage: Tool = {
   }
 };
 
-// 6. JINA AI
-const jinaSearch: Tool = {
-  name: 'jina_search',
-  description: 'Search the web using Jina AI and get SERP as LLM-friendly text.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      query: { type: SchemaType.STRING, description: 'Search query' }
-    },
-    required: ['query']
-  },
-  execute: async ({ query }: { query: string }) => {
-    try {
-      const headers: any = {};
-      if (config.JINA_API_KEY) headers['Authorization'] = `Bearer ${config.JINA_API_KEY}`;
-      const res = await axios.get(`https://s.jina.ai/${encodeURIComponent(query)}`, { headers });
-      return res.data;
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
-const jinaReader: Tool = {
-  name: 'jina_reader',
-  description: 'Convert any URL to Markdown for better grounding LLMs using Jina Reader.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      url: { type: SchemaType.STRING, description: 'URL to read' }
-    },
-    required: ['url']
-  },
-  execute: async ({ url }: { url: string }) => {
-    try {
-      const headers: any = {};
-      if (config.JINA_API_KEY) headers['Authorization'] = `Bearer ${config.JINA_API_KEY}`;
-      const res = await axios.get(`https://r.jina.ai/${url}`, { headers });
-      return res.data;
-    } catch (error: any) {
-      return `Error: ${error.message}`;
-    }
-  }
-};
-
 const readFile: Tool = {
   name: 'read_file',
   description: 'Read the content of a local file.',
@@ -1157,7 +1112,6 @@ const tools = [
   netlifyListSites, netlifyDeploy, netlifyDeployDirectory, netlifyDeleteSite, netlifyGetSite,
   getCurrentTime, getWebsiteContent,
   context7ResolveLibrary, context7QueryDocs,
-  jinaReader,
   createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory,
   zipDirectory, unzipFile, searchFilesContent,
   sendTelegramMedia, calculator, generateQrCode, duckduckgoSearch, wikipediaSearch, devdocsSearch, telegraphCreatePage

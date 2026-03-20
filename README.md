@@ -22,34 +22,33 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **Autonomous Project Orchestration**: Build entire project structures locally, zip/unzip them, and deploy instantly to Netlify as a directory-level ZIP.
 *   **Self-Healing Environment**: Automatically captures and persists Smithery session IDs to `.env` and manages workspace cleanup.
 *   **Sequential Intelligence Fallback**:
-    1.  **Primary**: Primary Gemini 3 Flash (Exhaustive retry across all 11+ keys).
-    2.  **Secondary**: Gemini 3.1 Flash Lite (High efficiency).
-    3.  **Tertiary**: Jina AI DeepSearch (Advanced web grounding).
-    4.  **Final**: Groq (Llama-based models like `gpt-oss-120b`).
+    1.  **Primary**: Gemini 3 Flash (Exhaustive retry across all keys).
+    2.  **Secondary**: Gemini 3.1 Flash Lite.
+    3.  **Final**: Groq (`llama-3.3-70b-versatile` or `openai/gpt-oss-120b`).
 
 ## 🛠 Commands
 
 | Command | Description |
 | :--- | :--- |
-| `/auth` | Link Google and other Oauth services |
+| `/auth` | Link Google and other OAuth services |
 | `/auto [task]` | Run without manual tool approvals |
 | `/mode [plan\|thinking\|normal]` | Switch agent reasoning mode for the current task |
 | `/schedule every [n] [unit] [task]` | Automate a task |
-| `/status` | System report, tool counts (Native/MCP/Total), and version info |
+| `/status` | System report, tool counts, and version info |
 | `/clear` | Clear history AND wipe AI-created workspace files |
 | `/reload` | Refresh all authorized MCP connections |
 | `/end` | Stop the current active task |
 
 ## 📦 Tech Stack
 
-*   **Brain**: Google Gemini 3 Flash (Primary), Jina DeepSearch, Groq (Llama 3.3).
+*   **Brain**: Google Gemini 3 Flash, Gemini 3.1 Flash Lite, Groq Cloud.
 *   **Memory**: Supabase (Postgres) + local file persistence.
 *   **Interface**: Telegram Bot API via `grammy`.
 *   **Tools**: Smithery Connect (MCP), Python 3.12 (Data analysis/Charts/QR), `ctx7` CLI.
 
 ## ⚙️ Setup
 
-Refer to the source code for the full list of required environment variables. Key requirements include `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEYS`, `SMITHERY_API_KEY`, and `JINA_API_KEY`.
+Refer to the source code for the full list of required environment variables. Key requirements include `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEYS`, and `SMITHERY_API_KEY`.
 
 ---
 Private & Confidential. Built for Ammar.

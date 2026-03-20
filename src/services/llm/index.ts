@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Groq } from 'groq-sdk';
-import axios from 'axios';
 import { config } from '../../config/env.js';
 import { registry } from '../../tools/index.js';
 
@@ -231,51 +230,6 @@ FORMATTING RULES (CRITICAL):
   }
 }
 
-export class JinaProvider implements LLMProvider {
-  constructor() {}
-
-  async generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse> {
-    if (!config.JINA_API_KEY) throw new Error("Jina API key missing");
-
-    const messages = history.map(msg => {
-      if (msg.role === 'function') {
-        return {
-          role: 'user', // DeepSearch might prefer user for function results or system
-          content: `[Tool ${msg.name} Result]: ${msg.content}`
-        };
-      }
-
-      let content = msg.content;
-      try {
-          const parsed = JSON.parse(content);
-          if (parsed.type === 'tool_call') {
-              const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
-              content = textPart || "[Assistant calling tools...]";
-          }
-      } catch {}
-
-      return {
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: content,
-      };
-    });
-
-    const response = await axios.post('https://deepsearch.jina.ai/v1/chat/completions', {
-      model: "jina-deepsearch-v1",
-      messages: messages,
-    }, {
-      headers: {
-        'Authorization': `Bearer ${config.JINA_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    return {
-      text: response.data.choices[0]?.message?.content || "No response generated.",
-    };
-  }
-}
-
 export class GroqProvider implements LLMProvider {
   private client: Groq;
 
@@ -325,5 +279,4 @@ export class GroqProvider implements LLMProvider {
 
 // Export singleton instances for easy usage
 export const geminiProvider = new GeminiProvider();
-export const jinaProvider = new JinaProvider();
 export const groqProvider = new GroqProvider();

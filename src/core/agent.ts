@@ -7,7 +7,6 @@ export type AgentMode = 'normal' | 'plan' | 'thinking';
 export class Agent {
   constructor(
     private llm: LLMProvider, 
-    private secondaryLLM: LLMProvider,
     private fallbackLLM: LLMProvider,
     private memory: MemoryService
   ) {}
@@ -42,7 +41,6 @@ export class Agent {
           console.log("[Agent] Task aborted by user.");
           return "🛑 Task was ended by user.";
       }
-      loopCount++;
 
       // 2. Get History from DB and convert to ChatMessage[]
       const dbHistory = await this.memory.getHistory(10);
@@ -81,15 +79,15 @@ export class Agent {
                 await onThinking(thoughts);
             }
 
-            if (mode === 'plan') {
-                // If we haven't extracted a plan yet, or if the model just gave us one
-                if (loopCount === 1) {
-                    const lines = response.text.split('\n');
-                    const planLines = lines.filter((l: string) => /^\d+\./.test(l.trim()));
-                    if (planLines.length > 0) {
-                        currentPlan = planLines.map((l: string) => ({ task: l.replace(/^\d+\.\s*/, '').trim(), completed: false }));
-                        if (onThinking) await onThinking(`Switching to Plan Mode\n\n` + currentPlan.map((t, i) => `${i+1}. ${t.task} ⏳`).join('\n'));
-                    }
+            if (mode === 'plan' && currentPlan.length === 0) {
+                // If we haven't extracted a plan yet, search both text and thoughts
+                const planSource = `${response.text}\n${thoughts}`;
+                const lines = planSource.split('\n');
+                const planLines = lines.filter((l: string) => /^\d+\./.test(l.trim()));
+
+                if (planLines.length > 0) {
+                    currentPlan = planLines.map((l: string) => ({ task: l.replace(/^\d+\.\s*/, '').trim(), completed: false }));
+                    if (onThinking) await onThinking(`📋 *Plan Created*:\n\n` + currentPlan.map((t, i) => `${i+1}. ${t.task} ⏳`).join('\n'));
                 }
             }
         }
@@ -100,29 +98,22 @@ export class Agent {
         try {
             response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview");
         } catch (liteError: any) {
-            console.error("[Agent] Gemini Lite failed. Switching to Jina secondary...");
-            if (onFallback) await onFallback("Switching to Jina AI");
+            console.error("[Agent] Gemini Lite failed. Switching to Groq fallback...");
+            if (onFallback) await onFallback("Switching to Groq Cloud");
 
             try {
-              response = await this.secondaryLLM.generate(chatHistory);
-            } catch (secondaryError) {
-                console.error("[Agent] Jina failed, switching to Groq fallback...");
-                if (onFallback) await onFallback("Switching to Groq Cloud");
-
-                try {
-                  // Using openai/gpt-oss-120b as requested
-                  response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b");
-                } catch (fallbackError: any) {
-                  console.error("[Agent] All LLMs failed.", fallbackError);
-                  let delay = "some";
-                  if (error.message.startsWith('QUOTA_EXCEEDED:')) {
-                      delay = error.message.split(':')[1];
-                  } else {
-                      const delayMatch = error.message.match(/retry in (\d+)s/);
-                      if (delayMatch) delay = delayMatch[1];
-                  }
-                  return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
+                // Using openai/gpt-oss-120b as requested
+                response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b");
+            } catch (fallbackError: any) {
+                console.error("[Agent] All LLMs failed.", fallbackError);
+                let delay = "some";
+                if (error.message.startsWith('QUOTA_EXCEEDED:')) {
+                    delay = error.message.split(':')[1];
+                } else {
+                    const delayMatch = error.message.match(/retry in (\d+)s/);
+                    if (delayMatch) delay = delayMatch[1];
                 }
+                return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
             }
         }
       }
@@ -222,7 +213,7 @@ export class Agent {
 
 // Export a singleton instance? Not really needed if we inject dependencies
 // But we use it in bot.ts
-import { geminiProvider, jinaProvider, groqProvider } from '../services/llm/index.js';
+import { geminiProvider, groqProvider } from '../services/llm/index.js';
 import { memory } from '../services/memory.js';
 
-export const agent = new Agent(geminiProvider, jinaProvider, groqProvider, memory);
+export const agent = new Agent(geminiProvider, groqProvider, memory);
