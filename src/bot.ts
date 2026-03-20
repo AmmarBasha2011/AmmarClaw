@@ -10,6 +10,7 @@ import path from 'path';
 import { scheduler } from './services/scheduler.js';
 import { mcpService } from './services/mcp.js';
 import { registry } from './tools/index.js';
+import { sendChunks } from './utils/telegram.js';
 
 const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 
@@ -162,7 +163,7 @@ bot.command('end', (ctx) => {
         return ctx.reply("No task is currently running.");
     }
     currentController.abort();
-    currentController = null;
+    // currentController = null; // Removed to let finally block handle it and avoid race conditions
     ctx.reply("🛑 Task has been stopped.");
 });
 
@@ -231,15 +232,11 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
         }, autoMode, currentController.signal, media, async (msg) => {
             await ctx.reply(`🔄 *${msg}*...`, { parse_mode: 'Markdown' });
         }, mode, async (thoughts) => {
-            await ctx.reply(`💡 *AI Thinking*:\n${thoughts}`, { parse_mode: 'Markdown' });
+            await sendChunks(ctx, `💡 *AI Thinking*:\n${thoughts}`, { parse_mode: 'Markdown' });
         });
 
         if (response && response.trim().length > 0) {
-            try {
-                await ctx.reply(response, { parse_mode: 'Markdown' });
-            } catch {
-                await ctx.reply(response); // Fallback to plain text
-            }
+            await sendChunks(ctx, response, { parse_mode: 'Markdown' });
         }
     } catch (error: any) {
         if (error.name === 'AbortError' || currentController?.signal.aborted) {
@@ -286,11 +283,7 @@ bot.on('message:text', async (ctx) => {
                 if (status === 'completed') await ctx.reply(`🛠 AI finished tool: [${name}]`);
                 await ctx.replyWithChatAction('typing');
             });
-            try {
-                await ctx.reply(response, { parse_mode: 'Markdown' });
-            } catch {
-                await ctx.reply(response); // Fallback
-            }
+            await sendChunks(ctx, response, { parse_mode: 'Markdown' });
             return;
         }
     }

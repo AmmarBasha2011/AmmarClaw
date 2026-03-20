@@ -23,7 +23,7 @@ export interface LLMResponse {
 }
 
 export interface LLMProvider {
-  generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse>;
+  generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse>;
 }
 
 export class GeminiProvider implements LLMProvider {
@@ -42,7 +42,7 @@ export class GeminiProvider implements LLMProvider {
     console.log(`[Gemini] Rotating to key index ${this.currentKeyIndex}`);
   }
 
-  async generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse> {
+  async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
     const maxRetries = config.GEMINI_API_KEYS.length;
     let attempt = 0;
 
@@ -167,7 +167,7 @@ FORMATTING RULES (CRITICAL):
              return { text: "Error: Empty message context." };
         }
 
-        const result = await chat.sendMessage(lastMsg.parts);
+        const result = await chat.sendMessage(lastMsg.parts, { signal });
         const response = result.response;
         const text = response.text() || "";
         
@@ -237,7 +237,7 @@ export class GroqProvider implements LLMProvider {
     this.client = new Groq({ apiKey: config.GROQ_API_KEY });
   }
 
-  async generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse> {
+  async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
     const messages = history.map(msg => {
       if (msg.role === 'function') {
         return {
@@ -269,7 +269,7 @@ export class GroqProvider implements LLMProvider {
       model: modelOverride || "llama-3.3-70b-versatile",
       temperature: 0.7,
       max_tokens: 1024,
-    });
+    }, { signal });
 
     return {
       text: completion.choices[0]?.message?.content || "No response generated.",

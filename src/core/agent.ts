@@ -69,7 +69,7 @@ export class Agent {
             chatHistory.push({ role: 'user', content: planMsg });
         }
 
-        response = await this.llm.generate(chatHistory, "gemini-3-flash-preview");
+        response = await this.llm.generate(chatHistory, "gemini-3-flash-preview", signal);
 
         // Mode Specific logic
         if (response.rawParts) {
@@ -96,14 +96,14 @@ export class Agent {
         if (onFallback) await onFallback("Switching to smaller model");
 
         try {
-            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview");
+            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview", signal);
         } catch (liteError: any) {
             console.error("[Agent] Gemini Lite failed. Switching to Groq fallback...");
             if (onFallback) await onFallback("Switching to Groq Cloud");
 
             try {
                 // Using openai/gpt-oss-120b as requested
-                response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b");
+                response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b", signal);
             } catch (fallbackError: any) {
                 console.error("[Agent] All LLMs failed.", fallbackError);
                 let delay = "some";
@@ -130,6 +130,7 @@ export class Agent {
 
         // Execute Tools
         for (const call of response.toolCalls) {
+          if (signal?.aborted) break;
           const tool = registry.get(call.name);
           
           // Check for Approval (Skip if autoMode is true)
