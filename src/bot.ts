@@ -17,6 +17,14 @@ const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 // Single task lock
 let currentController: AbortController | null = null;
 
+// Message buffer for /run command
+interface BufferedMessage {
+    text?: string;
+    media?: MediaData[];
+    timestamp: number;
+}
+const messageBuffer: Map<string, BufferedMessage[]> = new Map();
+
 // Middleware: Security Check
 bot.use(async (ctx, next) => {
   const userId = ctx.from?.id.toString();
@@ -32,7 +40,7 @@ bot.command('start', (ctx) => ctx.reply('🌙 AmmarClaw is online and ready. Typ
 
 bot.command('help', (ctx) => {
     ctx.reply(
-        "🛠 *AmmarClaw V1.31 OS Commands*:\n\n" +
+        "🛠 *AmmarClaw V1.32 OS Commands*:\n\n" +
         "/auth - Link accounts (Google/YouTube/GitHub)\n" +
         "/auto [task] - Run without manual tool approvals\n" +
         "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
@@ -45,6 +53,7 @@ bot.command('help', (ctx) => {
         "/clear - Clear history & AI workspace files\n" +
         "/end - Stop current active task\n" +
         "/notreturn - Run task fully autonomously (AI will not ask questions)\n" +
+        "/run - Process all buffered messages and files as a single prompt\n" +
         "/remove - WIPE ALL DATABASE MEMORY\n\n" +
         "*Agent Modes*:\n" +
         "• *Plan Mode*: Visual checklist with sub-task progress.\n" +
@@ -111,7 +120,7 @@ bot.command('status', (ctx) => {
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.31\n` +
+        `📦 *Code Version*: V1.32\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
         `🚀 *Total Tools*: ${total} available`,
@@ -169,6 +178,34 @@ bot.command('end', (ctx) => {
     ctx.reply("🛑 Task has been stopped.");
 });
 
+bot.command('run', async (ctx) => {
+    const userId = ctx.from!.id.toString();
+    const buffer = messageBuffer.get(userId);
+
+    if (!buffer || buffer.length === 0) {
+        return ctx.reply("📥 Buffer is empty. Send messages or files first.");
+    }
+
+    if (currentController) {
+        return ctx.reply("⏳ A task is already running. Please wait or use /end.");
+    }
+
+    await ctx.reply("🚀 Processing buffered messages...");
+
+    // Combine all buffered messages
+    let combinedText = "";
+    const combinedMedia: MediaData[] = [];
+    const startTime = buffer[0].timestamp;
+
+    for (const msg of buffer) {
+        if (msg.text) combinedText += msg.text + "\n\n";
+        if (msg.media) combinedMedia.push(...msg.media);
+    }
+
+    messageBuffer.delete(userId);
+    await handleAgentRun(ctx, combinedText.trim(), combinedMedia, startTime);
+});
+
 async function downloadFile(fileId: string): Promise<{ data: string, mimeType: string, isText: boolean, textContent?: string }> {
     const file = await bot.api.getFile(fileId);
     const url = `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
@@ -205,8 +242,9 @@ async function downloadFile(fileId: string): Promise<{ data: string, mimeType: s
     };
 }
 
-async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
+async function handleAgentRun(ctx: any, text: string, media?: MediaData[], startTimeOverride?: number) {
     const userId = ctx.from.id.toString();
+    const startTime = startTimeOverride || Date.now();
 
     // 1. Task Lock Logic
     if (currentController) {
@@ -269,7 +307,9 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
         }, modelOverride, notReturn);
 
         if (response && response.trim().length > 0) {
-            await sendChunks(ctx, response, { parse_mode: 'Markdown' });
+            const duration = Math.floor((Date.now() - startTime) / 1000);
+            const finalMsg = `${response}\n\n⏱ *Task duration*: ${duration} seconds`;
+            await sendChunks(ctx, finalMsg, { parse_mode: 'Markdown' });
         }
     } catch (error: any) {
         if (error.name === 'AbortError' || currentController?.signal.aborted) {
@@ -286,6 +326,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
 // Message Handler
 bot.on('message:text', async (ctx) => {
     const text = ctx.message.text;
+    const userId = ctx.from!.id.toString();
 
     // 1. Auth & Approval Commands
     let authCode = '';
@@ -326,6 +367,14 @@ bot.on('message:text', async (ctx) => {
         if (pending) { await memory.clearPendingAction(); await ctx.reply("❌ Action cancelled."); return; }
     }
 
+    // Buffer if not a command and if task not running, or if we want to support multi-part prompts
+    if (!text.startsWith('/') && !currentController) {
+        const userBuffer = messageBuffer.get(userId) || [];
+        userBuffer.push({ text, timestamp: Date.now() });
+        messageBuffer.set(userId, userBuffer);
+        return ctx.reply("📥 Message buffered. Send more or use /run to start.", { reply_to_message_id: ctx.message.message_id });
+    }
+
     await handleAgentRun(ctx, text);
 });
 
@@ -347,15 +396,31 @@ bot.on(['message:photo', 'message:video', 'message:audio', 'message:document'], 
 
     if (fileId) {
         try {
+            const userId = ctx.from!.id.toString();
             await ctx.replyWithChatAction('typing');
             const download = await downloadFile(fileId);
 
+            let finalPromptText = text;
+            let finalMedia: MediaData[] | undefined;
+
             if (download.isText) {
-                const combinedText = `[File: ${fileName || 'unnamed'}]\n\n${download.textContent}\n\n${text}`;
-                await handleAgentRun(ctx, combinedText);
+                finalPromptText = `[File: ${fileName || 'unnamed'}]\n\n${download.textContent}\n\n${text}`;
             } else {
-                await handleAgentRun(ctx, text, [{ data: download.data, mimeType: download.mimeType }]);
+                finalMedia = [{ data: download.data, mimeType: download.mimeType }];
             }
+
+            if (!currentController) {
+                const userBuffer = messageBuffer.get(userId) || [];
+                userBuffer.push({
+                    text: finalPromptText,
+                    media: finalMedia,
+                    timestamp: Date.now()
+                });
+                messageBuffer.set(userId, userBuffer);
+                return ctx.reply("📥 File buffered. Send more or use /run to start.", { reply_to_message_id: ctx.message.message_id });
+            }
+
+            await handleAgentRun(ctx, finalPromptText, finalMedia);
         } catch (error: any) {
             console.error("Media processing error:", error);
             await ctx.reply(`❌ Failed to process media: ${error.message}`);

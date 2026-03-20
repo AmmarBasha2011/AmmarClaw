@@ -1,4 +1,4 @@
-# 🌙 AmmarClaw V1.25: Personal AI Assistant OS Agent
+# 🌙 AmmarClaw V1.32: Personal AI Assistant OS Agent
 
 AmmarClaw is a private, powerful, and persistent AI agent that acts as a personal "Operating System" for your digital life. Built for high-capacity reasoning and advanced system orchestration, it runs on Telegram and leverages the multimodal power of Google Gemini.
 
@@ -9,12 +9,14 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **V1.11**: Multi-modal support (Photos/Video/Audio), integrated Supabase/Weather/RSS/Icons8/NPM/Flights MCPs, and native Context7 CLI.
 *   **V1.2**: Advanced File Management (Recursive/Dirs), ZIP-based Netlify deployments, and Jina AI DeepSearch fallback.
 *   **V1.21**: AI OS Persona, 100k output tokens, 2M input context window, and enhanced workspace cleanup.
-*   **V1.25 (Latest)**: Multi-Mode reasoning (Plan/Thinking), 13+ MCP servers, native advanced tools (Calculator, QR, DDG, Wikipedia), and refined sequential fallback logic with 429 quota extraction.
+*   **V1.3**: Integrated 20+ MCP servers (Gmail, Canva, Maps, PayPal, etc.), fixed duplicate tool errors, added Jules/Stitch/Koyeb native toolsets, and multi-modal file extraction loop.
+*   **V1.31**: Website Screenshots tool (Playwright) and Autonomous "/notreturn" Mode for silent task completion.
+*   **V1.32 (Latest)**: Message Buffering with "/run" command for large prompts, Task Duration Timer, and Stitch/Koyeb API reliability fixes.
 
 ## ✨ Key Capabilities
 
 *   **Persistent Multi-Modal Memory**: Remembers every conversation and can process images, videos, audio clips, and documents.
-*   **13+ Integrated MCP Servers**: Native access to GitHub, Supabase, YouTube, PubMed, DuckDuckGo, Weather, RSS, NPM, Flights, and more via Smithery Connect.
+*   **20+ Integrated MCP Servers**: Native access to Gmail, Canva, GitHub, Supabase, YouTube, Google Maps, PayPal, PubMed, DuckDuckGo, Weather, RSS, NPM, Flights, and more via Smithery Connect.
 *   **Specialized Reasoning Modes**:
     *   **Normal Mode**: Fast and precise task execution.
     *   **Thinking Mode**: AI shares its raw internal reasoning and "Chain of Thought".
@@ -38,6 +40,8 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 | `/clear` | Clear history AND wipe AI-created workspace files |
 | `/reload` | Refresh all authorized MCP connections |
 | `/end` | Stop the current active task |
+| `/notreturn` | Fully autonomous mode (silent task completion) |
+| `/run` | Process all buffered messages/files as a single task |
 
 ## 📦 Tech Stack
 

@@ -293,7 +293,7 @@ const stitchListProjects: Tool = {
   execute: async () => {
     try {
       const res = await axios.get('https://stitch.googleapis.com/v1/projects', {
-        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+        headers: { 'x-goog-api-key': config.STITCH_API_KEY }
       });
       return JSON.stringify(res.data, null, 2);
     } catch (error: any) {
@@ -308,14 +308,15 @@ const stitchListScreens: Tool = {
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      projectId: { type: SchemaType.STRING, description: 'The project ID' }
+      projectId: { type: SchemaType.STRING, description: 'The project ID (e.g. projects/123)' }
     },
     required: ['projectId']
   },
   execute: async ({ projectId }: { projectId: string }) => {
     try {
-      const res = await axios.get(`https://stitch.googleapis.com/v1/${projectId}/screens`, {
-        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      const fullPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
+      const res = await axios.get(`https://stitch.googleapis.com/v1/${fullPath}/screens`, {
+        headers: { 'x-goog-api-key': config.STITCH_API_KEY }
       });
       return JSON.stringify(res.data, null, 2);
     } catch (error: any) {
@@ -330,15 +331,17 @@ const stitchGetScreen: Tool = {
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      projectId: { type: SchemaType.STRING, description: 'The project ID' },
-      screenId: { type: SchemaType.STRING, description: 'The screen ID' }
+      projectId: { type: SchemaType.STRING, description: 'The project ID (e.g. projects/123)' },
+      screenId: { type: SchemaType.STRING, description: 'The screen ID (e.g. screens/456)' }
     },
     required: ['projectId', 'screenId']
   },
   execute: async ({ projectId, screenId }: { projectId: string, screenId: string }) => {
     try {
-      const res = await axios.get(`https://stitch.googleapis.com/v1/${projectId}/screens/${screenId}`, {
-        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      const fullProjPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
+      const fullScreenPath = screenId.startsWith('screens/') ? screenId : `screens/${screenId}`;
+      const res = await axios.get(`https://stitch.googleapis.com/v1/${fullProjPath}/${fullScreenPath}`, {
+        headers: { 'x-goog-api-key': config.STITCH_API_KEY }
       });
       return JSON.stringify(res.data, null, 2);
     } catch (error: any) {
@@ -466,7 +469,7 @@ const stitchCreateProject: Tool = {
   execute: async ({ title }: { title: string }) => {
     try {
       const res = await axios.post('https://stitch.googleapis.com/v1/projects', { title }, {
-        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+        headers: { 'x-goog-api-key': config.STITCH_API_KEY }
       });
       return `Project created: ${res.data.name}`;
     } catch (error: any) {
@@ -482,15 +485,16 @@ const stitchGenerateScreen: Tool = {
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      projectId: { type: SchemaType.STRING, description: 'The project ID' },
+      projectId: { type: SchemaType.STRING, description: 'The project ID (e.g. projects/123)' },
       prompt: { type: SchemaType.STRING, description: 'UI description prompt' }
     },
     required: ['projectId', 'prompt']
   },
   execute: async ({ projectId, prompt }: { projectId: string, prompt: string }) => {
     try {
-      const res = await axios.post(`https://stitch.googleapis.com/v1/${projectId}/screens:generate`, { prompt }, {
-        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      const fullPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
+      const res = await axios.post(`https://stitch.googleapis.com/v1/${fullPath}/screens:generate`, { prompt }, {
+        headers: { 'x-goog-api-key': config.STITCH_API_KEY }
       });
       return `Screen generation started. Task: ${res.data.name}`;
     } catch (error: any) {
@@ -505,14 +509,15 @@ const stitchGetProject: Tool = {
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      projectId: { type: SchemaType.STRING, description: 'The project ID' }
+      projectId: { type: SchemaType.STRING, description: 'The project ID (e.g. projects/123)' }
     },
     required: ['projectId']
   },
   execute: async ({ projectId }: { projectId: string }) => {
     try {
-      const res = await axios.get(`https://stitch.googleapis.com/v1/${projectId}`, {
-        headers: { Authorization: `Bearer ${config.STITCH_API_KEY}` }
+      const fullPath = projectId.startsWith('projects/') ? projectId : `projects/${projectId}`;
+      const res = await axios.get(`https://stitch.googleapis.com/v1/${fullPath}`, {
+        headers: { 'x-goog-api-key': config.STITCH_API_KEY }
       });
       return JSON.stringify(res.data, null, 2);
     } catch (error: any) {
