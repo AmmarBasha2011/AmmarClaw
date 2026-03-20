@@ -31,20 +31,26 @@ bot.command('start', (ctx) => ctx.reply('🌙 AmmarClaw is online and ready. Typ
 
 bot.command('help', (ctx) => {
     ctx.reply(
-        "🛠 *AmmarClaw Commands*:\n\n" +
-        "/auth - Link Google account\n" +
-        "/auto [task] - Run without approval\n" +
+        "🛠 *AmmarClaw V1.25 OS Commands*:\n\n" +
+        "/auth - Link accounts (Google/YouTube/GitHub)\n" +
+        "/auto [task] - Run without manual tool approvals\n" +
+        "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
         "/schedule every [n] [unit] [task] - Automate a task\n" +
         "/schedules - List active automated tasks\n" +
         "/unschedule [id] - Remove a task\n" +
-        "/reload - Refresh MCP tools\n" +
-        "/end - Stop current task\n" +
-        "/status - Bot status\n" +
-        "/clear - Clear history\n" +
-        "/remove - WIPE ALL MEMORY (History, Facts, Schedules)\n\n" +
+        "/reload - Refresh all authorized MCP connections\n" +
+        "/status - System health, tool counts, and version\n" +
+        "/clear - Clear history & AI workspace files\n" +
+        "/end - Stop current active task\n" +
+        "/remove - WIPE ALL DATABASE MEMORY\n\n" +
+        "*Agent Modes*:\n" +
+        "• *Plan Mode*: Visual checklist with sub-task progress.\n" +
+        "• *Thinking Mode*: Shows AI's raw internal reasoning.\n" +
+        "• *Normal Mode*: Balanced speed and precision.\n\n" +
         "Examples:\n" +
-        "• `/schedule every 1 hour Summarize my Gmail` \n" +
-        "• `/schedule every 30 minutes Check GitHub notifications` ",
+        "• `/mode plan build a react landing page` \n" +
+        "• `/auto /mode thinking fetch my github stars` \n" +
+        "• `/schedule every 1 hour Summarize my Gmail` ",
         { parse_mode: 'Markdown' }
     );
 });
@@ -209,9 +215,11 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
     }
 
     const modeRegex = /\/mode\s+(normal|plan|thinking)\b/gi;
-    const modeMatch = modeRegex.exec(processedText);
-    if (modeMatch) {
-        mode = modeMatch[1] as any;
+    const modeMatches = [...processedText.matchAll(modeRegex)];
+    if (modeMatches.length > 0) {
+        // Take the first valid mode match
+        mode = modeMatches[0][1] as any;
+        // Remove all occurrences of /mode [mode]
         processedText = processedText.replace(modeRegex, '').trim();
     }
 
@@ -269,11 +277,6 @@ bot.on('message:text', async (ctx) => {
         }
     }
 
-    // Handle /mode command
-    if (text.startsWith('/mode ')) {
-        await ctx.reply("Please provide your command along with the mode, e.g., `/mode plan [task]`");
-        return;
-    }
 
     if (text.toLowerCase() === 'approve') {
         const pending = await memory.getPendingAction();

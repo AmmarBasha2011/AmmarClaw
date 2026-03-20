@@ -173,7 +173,19 @@ FORMATTING RULES (CRITICAL):
             // Extract wait time
             const delayMatch = error.message.match(/retry in (\d+)s/);
             const delay = delayMatch ? parseInt(delayMatch[1]) : 60;
-            // Throw special error for 429 to be caught by Agent
+
+            // Before failing completely, try next key even for 429
+            // This satisfies "try all 11 keys" requirement
+            this.rotateKey();
+            attempt++;
+
+            if (attempt < maxRetries) {
+                console.warn(`[Gemini] Key 429'd. Trying next key... (${attempt + 1}/${maxRetries})`);
+                await new Promise(r => setTimeout(r, 1000));
+                continue; // Retry with next key
+            }
+
+            // If all keys 429'd, then throw
             throw new Error(`QUOTA_EXCEEDED:${delay}`);
         }
 

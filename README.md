@@ -1,76 +1,55 @@
-# 🌙 AmmarClaw V1: Personal AI Assistant OS
+# 🌙 AmmarClaw V1.25: Personal AI Assistant OS Agent
 
-AmmarClaw is a private, powerful, and persistent AI agent that runs on Telegram and uses Google Gemini 3 Flash as its core brain. It is designed to act as a personal "Operating System" for your digital life, with native integrations for Google Workspace, GitHub (via MCP), Netlify, and more.
+AmmarClaw is a private, powerful, and persistent AI agent that acts as a personal "Operating System" for your digital life. Built for high-capacity reasoning and advanced system orchestration, it runs on Telegram and leverages the multimodal power of Google Gemini.
 
-## 🚀 Key Features
+## 🚀 Evolution & Versions
 
-*   **Persistent Memory**: Uses **Supabase** (PostgreSQL) to remember every conversation, fact, and schedule permanently.
-*   **Model Context Protocol (MCP)**: Powered by **Smithery Connect** to integrate advanced tools dynamically. Currently uses the GitHub MCP server (`https://github.run.tools`) for superior repository management.
-*   **Comprehensive CRUD Tools**: Full control over local files, Gmail, Google Drive, Blogger, and YouTube.
-*   **Intelligent Automation**: Schedule any task to run automatically (e.g., "Check my emails every 1 hour").
-*   **Hybrid Intelligence**: Primarily uses `gemini-3-flash-preview` with an automatic fallback to `llama-3.3-70b` (via Groq) if Gemini fails or hits quotas.
-*   **Security First**: Whitelisted access for a single Telegram User ID, with explicit approval required for sensitive actions (unless `/auto` mode is used).
-*   **Cloud Ready**: Fully optimized for deployment on **Koyeb** with persistent background scheduling.
+*   **V1.0**: Initial release with Supabase memory, GitHub MCP, and basic Google Workspace tools.
+*   **V1.1**: Added round-robin Gemini API key support and exhaustive retry logic.
+*   **V1.11**: Multi-modal support (Photos/Video/Audio), integrated Supabase/Weather/RSS/Icons8/NPM/Flights MCPs, and native Context7 CLI.
+*   **V1.2**: Advanced File Management (Recursive/Dirs), ZIP-based Netlify deployments, and Jina AI DeepSearch fallback.
+*   **V1.21**: AI OS Persona, 100k output tokens, 2M input context window, and enhanced workspace cleanup.
+*   **V1.25 (Latest)**: Multi-Mode reasoning (Plan/Thinking), 13+ MCP servers, native advanced tools (Calculator, QR, DDG, Wikipedia), and refined sequential fallback logic.
+
+## ✨ Key Capabilities
+
+*   **Persistent Multi-Modal Memory**: Remembers every conversation and can process images, videos, audio clips, and documents.
+*   **13+ Integrated MCP Servers**: Native access to GitHub, Supabase, YouTube, PubMed, DuckDuckGo, Weather, RSS, NPM, Flights, and more via Smithery Connect.
+*   **Specialized Reasoning Modes**:
+    *   **Normal Mode**: Fast and precise task execution.
+    *   **Thinking Mode**: AI shares its raw internal reasoning and "Chain of Thought".
+    *   **Plan Mode**: AI creates a visual checklist and tracks sub-tasks with progress indicators.
+*   **Autonomous Project Orchestration**: Build entire project structures locally and deploy them instantly to Netlify as a directory-level ZIP.
+*   **Self-Healing Environment**: Automatically captures and persists Smithery session IDs to `.env` and manages workspace cleanup.
+*   **Sequential Intelligence Fallback**:
+    1.  **Primary**: Primary Gemini 3 Flash (Exhaustive retry across all 11+ keys).
+    2.  **Secondary**: Gemini 3.1 Flash Lite (High efficiency).
+    3.  **Tertiary**: Jina AI DeepSearch (Advanced web grounding).
+    4.  **Final**: Groq (Llama-based models like `gpt-oss-120b`).
 
 ## 🛠 Commands
 
 | Command | Description |
 | :--- | :--- |
-| `/auth` | Link your Google account (Gmail, Drive, YouTube, Blogger) |
-| `/auto [task]` | Run a task without requiring manual tool approvals |
-| `/schedule every [n] [unit] [task]` | Automate a task (e.g., `every 1 hour summarize Gmail`) |
-| `/schedules` | List all active automated tasks |
-| `/unschedule [id]` | Remove an automated task |
-| `/reload` | **NEW**: Reload MCP tools from Smithery Connect |
-| `/status` | Check bot status, MCP connection, and loaded tools |
-| `/clear` | Clear the current conversation history |
-| `/remove` | **CRITICAL**: Wipe ALL data from Supabase (History, Facts, Schedules) |
+| `/auth` | Link Google and other Oauth services |
+| `/auto [task]` | Run without manual tool approvals |
+| `/mode [plan\|thinking\|normal]` | Switch agent reasoning mode for the current task |
+| `/schedule every [n] [unit] [task]` | Automate a task |
+| `/status` | System report, total tool count (Native + MCP), and version info |
+| `/clear` | Clear history AND wipe AI-created workspace files |
+| `/reload` | Refresh all authorized MCP connections |
 | `/end` | Stop the current active task |
 
 ## 📦 Tech Stack
 
-*   **Language**: TypeScript (Node.js 24+)
-*   **LLM**: Google Gemini 3 Flash & Groq (Llama 3.3)
-*   **MCP**: @modelcontextprotocol/sdk & @smithery/api
-*   **Database**: Supabase (Postgres)
-*   **Interface**: Telegram Bot API (via `grammy`)
-*   **Integrations**: Google APIs, Smithery Connect (GitHub MCP), Axios (Netlify/Maps)
+*   **Brain**: Google Gemini 3 Flash (Primary), Jina DeepSearch, Groq (Llama 3.3).
+*   **Memory**: Supabase (Postgres) + local file persistence.
+*   **Interface**: Telegram Bot API via `grammy`.
+*   **Tools**: Smithery Connect (MCP), Python 3.12 (Data analysis/Charts), `ctx7` CLI.
 
-## ⚙️ Setup & Deployment
+## ⚙️ Setup
 
-### 1. Database Setup (Supabase)
-Run the following SQL in your Supabase SQL Editor:
-```sql
-CREATE TABLE ammarclaw_messages (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, role TEXT NOT NULL, content TEXT NOT NULL, name TEXT, timestamp TIMESTAMPTZ DEFAULT NOW());
-CREATE TABLE ammarclaw_kv_store (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());
-CREATE TABLE ammarclaw_pending_actions (id INT PRIMARY KEY, tool_name TEXT NOT NULL, args TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW());
-CREATE TABLE ammarclaw_schedules (id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, user_id TEXT NOT NULL, prompt TEXT NOT NULL, interval_type TEXT NOT NULL, interval_value INT NOT NULL, last_run TIMESTAMPTZ, next_run TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT NOW());
-```
+Refer to the source code for the full list of required environment variables. Key requirements include `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEYS`, `SMITHERY_API_KEY`, and `JINA_API_KEY`.
 
-### 2. Environment Variables (.env)
-```env
-TELEGRAM_BOT_TOKEN=your_token
-TELEGRAM_USER_ID=7337933185
-GEMINI_API_KEYS=key1,key2,key3
-GITHUB_TOKEN=your_github_pat
-SMITHERY_API_KEY=your_smithery_key
-NETLIFY_AUTH_TOKEN=your_netlify_token
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_service_role_key
-GROQ_API_KEY=your_groq_key
-```
-
-### 3. Installation
-```bash
-npm install
-npm run dev
-```
-
-### 4. Koyeb Deployment
-1. Connect your GitHub repository to Koyeb.
-2. Set the **Instance Type** (Background Worker is recommended).
-3. Add all Environment Variables in the Koyeb console.
-4. Deployment command: `npm start`.
-
-## 📜 License
+---
 Private & Confidential. Built for Ammar.
