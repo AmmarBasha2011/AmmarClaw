@@ -24,7 +24,7 @@ export interface LLMResponse {
 }
 
 export interface LLMProvider {
-  generate(history: ChatMessage[]): Promise<LLMResponse>;
+  generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse>;
 }
 
 export class GeminiProvider implements LLMProvider {
@@ -43,7 +43,7 @@ export class GeminiProvider implements LLMProvider {
     console.log(`[Gemini] Rotating to key index ${this.currentKeyIndex}`);
   }
 
-  async generate(history: ChatMessage[]): Promise<LLMResponse> {
+  async generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse> {
     const maxRetries = config.GEMINI_API_KEYS.length;
     let attempt = 0;
 
@@ -116,7 +116,7 @@ export class GeminiProvider implements LLMProvider {
       try {
         const genAI = this.getClient();
         const model = genAI.getGenerativeModel({
-          model: "gemini-3-flash-preview", 
+          model: modelOverride || "gemini-3-flash-preview",
           tools: [{ functionDeclarations: registry.getFunctionDeclarations() }],
           systemInstruction: `You are AmmarClaw, Ammar's Personal AI OS Agent. You run locally and use Telegram as your primary interface to manage his digital world. You are powerful, proactive, and secure. You have deep access to files, cloud services, and specialized tools. Your goal is to execute tasks with high precision and provide a seamless "AI OS" experience. Always use tools when needed to interact with the environment.
 
@@ -190,7 +190,7 @@ FORMATTING RULES (CRITICAL):
 export class JinaProvider implements LLMProvider {
   constructor() {}
 
-  async generate(history: ChatMessage[]): Promise<LLMResponse> {
+  async generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse> {
     if (!config.JINA_API_KEY) throw new Error("Jina API key missing");
 
     const messages = history.map(msg => {
@@ -239,7 +239,7 @@ export class GroqProvider implements LLMProvider {
     this.client = new Groq({ apiKey: config.GROQ_API_KEY });
   }
 
-  async generate(history: ChatMessage[]): Promise<LLMResponse> {
+  async generate(history: ChatMessage[], modelOverride?: string): Promise<LLMResponse> {
     const messages = history.map(msg => {
       if (msg.role === 'function') {
         return {
@@ -268,7 +268,7 @@ export class GroqProvider implements LLMProvider {
 
     const completion = await this.client.chat.completions.create({
       messages: messages,
-      model: "llama-3.3-70b-versatile",
+      model: modelOverride || "llama-3.3-70b-versatile",
       temperature: 0.7,
       max_tokens: 1024,
     });

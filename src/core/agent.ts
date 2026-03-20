@@ -16,7 +16,8 @@ export class Agent {
     onToolCall?: (name: string, args: any, status: 'executing' | 'pending' | 'completed', result?: string) => Promise<void>,
     autoMode: boolean = false,
     signal?: AbortSignal,
-    media?: MediaData[]
+    media?: MediaData[],
+    onFallback?: (provider: string) => Promise<void>
   ): Promise<string> {
     // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
     await this.memory.addMessage('user', input);
@@ -48,19 +49,33 @@ export class Agent {
       // 3. Call LLM
       let response;
       try {
-        console.log(`[Agent] Turn ${loopCount}: Calling Gemini...`);
-        response = await this.llm.generate(chatHistory);
-      } catch (error) {
-        console.error("[Agent] Gemini failed, switching to Jina secondary...", error);
+        console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
+        response = await this.llm.generate(chatHistory, "gemini-3-flash-preview");
+      } catch (error: any) {
+        console.warn("[Agent] Gemini Primary failed. Trying Gemini Lite...");
+        if (onFallback) await onFallback("Switching to smaller model");
+
         try {
-          response = await this.secondaryLLM.generate(chatHistory);
-        } catch (secondaryError) {
-            console.error("[Agent] Jina failed, switching to Groq fallback...", secondaryError);
+            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview");
+        } catch (liteError: any) {
+            console.error("[Agent] Gemini Lite failed. Switching to Jina secondary...");
+            if (onFallback) await onFallback("Switching to Jina AI");
+
             try {
-              response = await this.fallbackLLM.generate(chatHistory);
-            } catch (fallbackError) {
-              console.error("[Agent] All LLMs failed.", fallbackError);
-              return "I'm having trouble thinking right now. Please try again later.";
+              response = await this.secondaryLLM.generate(chatHistory);
+            } catch (secondaryError) {
+                console.error("[Agent] Jina failed, switching to Groq fallback...");
+                if (onFallback) await onFallback("Switching to Groq Cloud");
+
+                try {
+                  // Using openai/gpt-oss-120b as requested
+                  response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b");
+                } catch (fallbackError: any) {
+                  console.error("[Agent] All LLMs failed.", fallbackError);
+                  const delayMatch = error.message.match(/retry in (\d+)s/);
+                  const delay = delayMatch ? delayMatch[1] : "some";
+                  return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
+                }
             }
         }
       }

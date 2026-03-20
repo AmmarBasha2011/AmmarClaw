@@ -439,6 +439,28 @@ const listFiles: Tool = {
   }
 };
 
+const deleteDirectory: Tool = {
+  name: 'delete_directory',
+  description: 'Delete a directory and all its contents.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      path: { type: SchemaType.STRING, description: 'Relative path to the directory' }
+    },
+    required: ['path']
+  },
+  execute: async ({ path: dirPath }: { path: string }) => {
+    try {
+      const safePath = path.join(process.cwd(), dirPath.replace(/^(\.\.[/\\])+/, ''));
+      await fs.rm(safePath, { recursive: true, force: true });
+      return `Directory ${dirPath} and its contents deleted.`;
+    } catch (error: any) {
+      return `Error: ${error.message}`;
+    }
+  }
+};
+
 const createDirectory: Tool = {
   name: 'create_directory',
   description: 'Create a new directory.',
@@ -885,6 +907,6 @@ const tools = [
   getCurrentTime, getWebsiteContent,
   context7ResolveLibrary, context7QueryDocs,
   jinaSearch, jinaReader,
-  createDirectory, moveFile, copyFile, listFilesRecursive
+  createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory
 ];
 tools.forEach(t => registry.register(t));

@@ -5,6 +5,8 @@ import { googleService } from './services/google.js';
 import { memory } from './services/memory.js';
 import { MediaData } from './services/llm/index.js';
 import axios from 'axios';
+import fs from 'fs/promises';
+import path from 'path';
 import { scheduler } from './services/scheduler.js';
 import { mcpService } from './services/mcp.js';
 import { registry } from './tools/index.js';
@@ -121,7 +123,26 @@ bot.command('reload', async (ctx) => {
 
 bot.command('clear', async (ctx) => {
     await memory.clearHistory();
-    ctx.reply("✨ Conversation history has been cleared.");
+
+    try {
+        const entries = await fs.readdir(process.cwd(), { withFileTypes: true });
+        const keepFiles = [
+            'src', 'dist', 'node_modules', 'package.json', 'package-lock.json',
+            'tsconfig.json', '.env', '.gitignore', 'README.md', 'SKILL.md',
+            'auth.ts', 'client_secret.json', 'token.json', 'memory.db',
+            'index.html', 'eslint.config.mjs'
+        ];
+
+        for (const entry of entries) {
+            if (!keepFiles.includes(entry.name) && !entry.name.startsWith('.')) {
+                const fullPath = path.join(process.cwd(), entry.name);
+                await fs.rm(fullPath, { recursive: true, force: true });
+            }
+        }
+        await ctx.reply("✨ Conversation history and workspace files have been cleared.");
+    } catch (error: any) {
+        await ctx.reply(`✨ History cleared, but failed to clean some files: ${error.message}`);
+    }
 });
 
 bot.command('remove', async (ctx) => {
@@ -188,7 +209,9 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
             if (status === 'executing') await ctx.reply(`🛠 AI Using Tool [${name}]`);
             if (status === 'completed') await ctx.reply(`✅ AI Used Tool [${name}]`);
             await ctx.replyWithChatAction('typing');
-        }, autoMode, currentController.signal, media);
+        }, autoMode, currentController.signal, media, async (msg) => {
+            await ctx.reply(`🔄 *${msg}*...`, { parse_mode: 'Markdown' });
+        });
 
         if (response && response.trim().length > 0) {
             try {
