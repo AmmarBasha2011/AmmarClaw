@@ -32,7 +32,7 @@ bot.command('start', (ctx) => ctx.reply('🌙 AmmarClaw is online and ready. Typ
 
 bot.command('help', (ctx) => {
     ctx.reply(
-        "🛠 *AmmarClaw V1.3 OS Commands*:\n\n" +
+        "🛠 *AmmarClaw V1.31 OS Commands*:\n\n" +
         "/auth - Link accounts (Google/YouTube/GitHub)\n" +
         "/auto [task] - Run without manual tool approvals\n" +
         "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
@@ -44,6 +44,7 @@ bot.command('help', (ctx) => {
         "/status - System health, tool counts, and version\n" +
         "/clear - Clear history & AI workspace files\n" +
         "/end - Stop current active task\n" +
+        "/notreturn - Run task fully autonomously (AI will not ask questions)\n" +
         "/remove - WIPE ALL DATABASE MEMORY\n\n" +
         "*Agent Modes*:\n" +
         "• *Plan Mode*: Visual checklist with sub-task progress.\n" +
@@ -110,7 +111,7 @@ bot.command('status', (ctx) => {
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.3\n` +
+        `📦 *Code Version*: V1.31\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
         `🚀 *Total Tools*: ${total} available`,
@@ -219,14 +220,22 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
 
     let processedText = text;
     let autoMode = false;
+    let notReturn = false;
     let mode: 'normal' | 'plan' | 'thinking' = 'normal';
     let modelOverride: 'Gemini' | 'GeminiLite' | 'Groq' | undefined;
 
-    // Flexible parsing for /auto, /mode, and /model at start or end
+    // Flexible parsing for /auto, /notreturn, /mode, and /model at start or end
     const autoRegex = /\/auto\b/gi;
     if (autoRegex.test(processedText)) {
         autoMode = true;
         processedText = processedText.replace(autoRegex, '').trim();
+    }
+
+    const notReturnRegex = /\/notreturn\b/gi;
+    if (notReturnRegex.test(processedText)) {
+        notReturn = true;
+        autoMode = true; // /notreturn implies autoMode
+        processedText = processedText.replace(notReturnRegex, '').trim();
     }
 
     const modeRegex = /\/mode\s+(normal|plan|thinking)\b/gi;
@@ -257,7 +266,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
             await ctx.reply(`🔄 *${msg}*...`, { parse_mode: 'Markdown' });
         }, mode, async (thoughts) => {
             await sendChunks(ctx, `💡 *AI Thinking*:\n${thoughts}`, { parse_mode: 'Markdown' });
-        }, modelOverride);
+        }, modelOverride, notReturn);
 
         if (response && response.trim().length > 0) {
             await sendChunks(ctx, response, { parse_mode: 'Markdown' });

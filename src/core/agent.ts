@@ -21,7 +21,8 @@ export class Agent {
     onFallback?: (provider: string) => Promise<void>,
     mode: AgentMode = 'normal',
     onThinking?: (thoughts: string) => Promise<void>,
-    modelOverride?: 'Gemini' | 'GeminiLite' | 'Groq'
+    modelOverride?: 'Gemini' | 'GeminiLite' | 'Groq',
+    notReturn?: boolean
   ): Promise<string> {
     let currentPlan: { task: string, completed: boolean }[] = [];
 
@@ -32,6 +33,10 @@ export class Agent {
         processedInput = `SYSTEM: You are in PLAN MODE. First, analyze the task and create a numbered list of sub-tasks needed to complete it. Then start executing them one by one.\n\nUSER INPUT: ${processedInput}`;
     } else if (mode === 'thinking') {
         processedInput = `SYSTEM: You are in THINKING MODE. Before taking any action or giving a final response, share your detailed step-by-step internal reasoning.\n\nUSER INPUT: ${processedInput}`;
+    }
+
+    if (notReturn) {
+        processedInput = `SYSTEM: [NOT RETURN MODE ENABLED] You are in a fully autonomous mode. You MUST NOT ask the user any questions, seek clarification, or wait for input until you have fully completed the entire task. If you encounter an obstacle, use your tools to solve it or find an alternative route. Your only response should be the final completed result or a terminal failure report if all tools/attempts failed. DO NOT ASK ANYTHING. JUST DO.\n\n${processedInput}`;
     }
 
     // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)

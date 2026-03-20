@@ -1,4 +1,5 @@
 import { FunctionDeclaration, SchemaType } from '@google/generative-ai';
+import { chromium } from 'playwright';
 import axios from 'axios';
 import { spawn } from 'child_process';
 import { promisify } from 'util';
@@ -1327,6 +1328,45 @@ const getWebsiteContent: Tool = {
   }
 };
 
+const screenshotWebsite: Tool = {
+  name: 'screenshot_website',
+  description: 'Capture a screenshot of a website. The screenshot will also be sent directly to the user chat.',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      url: { type: SchemaType.STRING, description: 'The URL of the website' },
+      fullPage: { type: SchemaType.BOOLEAN, description: 'Whether to take a full page screenshot (default: false)' }
+    },
+    required: ['url']
+  },
+  execute: async ({ url, fullPage }: { url: string, fullPage?: boolean }) => {
+    let browser;
+    try {
+      browser = await chromium.launch();
+      const page = await browser.newPage();
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+
+      const filename = `screenshot_${Date.now()}.png`;
+      const filePath = path.join(process.cwd(), filename);
+
+      await page.screenshot({ path: filePath, fullPage: fullPage || false });
+
+      // Send directly to user via Telegram
+      const file = new InputFile(filePath);
+      await bot.api.sendPhoto(config.TELEGRAM_USER_ID, file, {
+          caption: `📸 Screenshot of ${url}`
+      });
+
+      return `Screenshot captured and sent to user. File saved at: ${filename}`;
+    } catch (error: any) {
+      console.error(`[Tool:screenshot_website] Error:`, error.message);
+      return `Error capturing screenshot: ${error.message}`;
+    } finally {
+      if (browser) await browser.close();
+    }
+  }
+};
+
 const execAsync = promisify(spawnAsExec);
 function spawnAsExec(command: string, options: any, callback: any) {
   const child = spawn('sh', ['-c', command], options);
@@ -1415,7 +1455,7 @@ const tools = [
   driveSearch, driveDeleteFile, driveCreateFolder,
   bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
   netlifyListSites, netlifyDeploy, netlifyDeployDirectory, netlifyDeleteSite, netlifyGetSite,
-  getWebsiteContent,
+  getWebsiteContent, screenshotWebsite,
   context7ResolveLibrary, context7QueryDocs,
   createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory,
   zipDirectory, unzipFile, searchFilesContent,
