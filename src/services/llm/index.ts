@@ -47,23 +47,39 @@ export class GeminiProvider implements LLMProvider {
     const maxRetries = config.GEMINI_API_KEYS.length;
     let attempt = 0;
 
-    // Convert internal message format to Gemini format ONCE (or per attempt if needed, but static is fine)
-    // Actually, we need to rebuild the chat session each time we get a new model instance.
-    const geminiHistory = history.map(msg => {
+    // Convert internal message format to Gemini format.
+    // We must group consecutive 'function' responses into a single turn for Gemini.
+    const geminiHistory: any[] = [];
+    let i = 0;
+    while (i < history.length) {
+      const msg = history[i];
+
       if (msg.role === 'function') {
-        return {
+        const functionParts = [];
+        // Group all consecutive function results
+        while (i < history.length && history[i].role === 'function') {
+          functionParts.push({
+            functionResponse: {
+              name: history[i].name!,
+              response: { content: history[i].content }
+            }
+          });
+          i++;
+        }
+        geminiHistory.push({
           role: 'function',
-          parts: [{ functionResponse: { name: msg.name!, response: { content: msg.content } } }]
-        };
+          parts: functionParts
+        });
+        continue;
       }
-      
+
       if (msg.role === 'assistant') {
           try {
               const parsed = JSON.parse(msg.content);
               if (parsed.type === 'tool_call') {
                   // If we have rawParts (new format), use them exactly as they were
                   if (Array.isArray(parsed.rawParts)) {
-                      return {
+                      geminiHistory.push({
                           role: 'model',
                           parts: parsed.rawParts.map((part: any) => {
                               // Ensure functionCall parts have a signature for Gemini 3
@@ -72,26 +88,32 @@ export class GeminiProvider implements LLMProvider {
                               }
                               return part;
                           })
-                      };
+                      });
+                      i++;
+                      continue;
                   }
                   // Fallback for old serialized calls format
                   if (Array.isArray(parsed.calls)) {
-                      return {
+                      geminiHistory.push({
                           role: 'model',
                           parts: parsed.calls.map((call: any) => ({
                               functionCall: { name: call.name, args: call.args },
                               thought_signature: call.thought_signature || "skip_thought_signature_validator"
                           }))
-                      };
+                      });
+                      i++;
+                      continue;
                   }
               }
           } catch {
               // Ignore parse errors, proceed as text
           }
-          return {
+          geminiHistory.push({
               role: 'model',
               parts: [{ text: msg.content }]
-          };
+          });
+          i++;
+          continue;
       }
 
       const parts: any[] = [{ text: msg.content }];
@@ -106,11 +128,12 @@ export class GeminiProvider implements LLMProvider {
         });
       }
 
-      return {
+      geminiHistory.push({
         role: 'user',
         parts: parts
-      };
-    });
+      });
+      i++;
+    }
 
     while (attempt < maxRetries) {
       try {
@@ -131,9 +154,9 @@ FORMATTING RULES (CRITICAL):
 
         const chat = model.startChat({
           history: (() => {
-            const h = geminiHistory.slice(0, -1);
-            const firstUserIndex = h.findIndex(m => m.role === 'user');
-            return firstUserIndex !== -1 ? h.slice(firstUserIndex) : [];
+            const historyToInclude = geminiHistory.slice(0, -1);
+            const firstUserIndex = historyToInclude.findIndex(m => m.role === 'user');
+            return firstUserIndex !== -1 ? historyToInclude.slice(firstUserIndex) : [];
           })(),
           generationConfig: {
             maxOutputTokens: 100000,
@@ -181,7 +204,8 @@ FORMATTING RULES (CRITICAL):
 
             if (attempt < maxRetries) {
                 console.warn(`[Gemini] Key 429'd. Trying next key... (${attempt + 1}/${maxRetries})`);
-                await new Promise(r => setTimeout(r, 1000));
+                // Increased delay to 2 seconds between keys on 429 to avoid cascade
+                await new Promise(r => setTimeout(r, 2000));
                 continue; // Retry with next key
             }
 

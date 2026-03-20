@@ -367,15 +367,23 @@ const calculator: Tool = {
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      expression: { type: SchemaType.STRING, description: 'The math expression to evaluate (e.g., "sqrt(25) + 10 * 5")' }
+      expression: { type: SchemaType.STRING, description: 'The math expression to evaluate (e.g., "math.sqrt(25) + 10 * 5")' }
     },
     required: ['expression']
   },
   execute: async ({ expression }: { expression: string }) => {
     try {
-        const pythonCode = `import math; print(eval("${expression.replace(/"/g, '\\"')}"))`;
-        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
-        return stdout.trim();
+        // Use python_execute MCP tool logic via registry to be safe,
+        // or just use a very restricted python sub-process.
+        // For simplicity and safety, we will call Python but NOT use eval() directly on raw string.
+        const safeExpr = expression.replace(/[^0-9+\-*/().mathsqrtlogexp\s,]/gi, '');
+        const pythonCode = `import math; print(${safeExpr})`;
+        const child = spawn('python3', ['-c', pythonCode]);
+        return new Promise((resolve) => {
+            let stdout = '';
+            child.stdout.on('data', (d) => stdout += d);
+            child.on('close', () => resolve(stdout.trim() || 'Error evaluating expression'));
+        });
     } catch (error: any) {
         return `Error: ${error.message}`;
     }
@@ -396,9 +404,13 @@ const generateQrCode: Tool = {
   },
   execute: async ({ data, filename }: { data: string, filename: string }) => {
     try {
-        const pythonCode = `import qrcode; img = qrcode.make("${data.replace(/"/g, '\\"')}"); img.save("${filename.replace(/"/g, '\\"')}")`;
-        await execAsync(`python3 -c '${pythonCode}'`, {} as any);
-        return `QR code generated and saved to ${filename}.`;
+        const pythonCode = `import qrcode; img = qrcode.make(input()); img.save(input())`;
+        const child = spawn('python3', ['-c', pythonCode]);
+        child.stdin.write(`${data}\n${filename}\n`);
+        child.stdin.end();
+        return new Promise((resolve) => {
+            child.on('close', () => resolve(`QR code generated and saved to ${filename}.`));
+        });
     } catch (error: any) {
         return `Error: ${error.message}`;
     }
@@ -421,9 +433,15 @@ const duckduckgoSearch: Tool = {
     try {
         const searchType = type || 'text';
         const limit = max_results || 5;
-        const pythonCode = `from duckduckgo_search import DDGS; results = list(DDGS().${searchType}("${query.replace(/"/g, '\\"')}", max_results=${limit})); import json; print(json.dumps(results))`;
-        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
-        return stdout;
+        const pythonCode = `from duckduckgo_search import DDGS; import json; import sys; q = sys.stdin.read().strip(); results = list(DDGS().${searchType}(q, max_results=${limit})); print(json.dumps(results))`;
+        const child = spawn('python3', ['-c', pythonCode]);
+        child.stdin.write(query);
+        child.stdin.end();
+        return new Promise((resolve) => {
+            let stdout = '';
+            child.stdout.on('data', (d) => stdout += d);
+            child.on('close', () => resolve(stdout));
+        });
     } catch (error: any) {
         return `Error: ${error.message}`;
     }
@@ -442,9 +460,15 @@ const wikipediaSearch: Tool = {
   },
   execute: async ({ query }: { query: string }) => {
     try {
-        const pythonCode = `import wikipediaapi; wiki = wikipediaapi.Wikipedia("AmmarClaw/1.25 (ammar@example.com)", "en"); page = wiki.page("${query.replace(/"/g, '\\"')}"); print(page.summary[:5000] if page.exists() else "Page not found.")`;
-        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
-        return stdout;
+        const pythonCode = `import wikipediaapi; import sys; q = sys.stdin.read().strip(); wiki = wikipediaapi.Wikipedia("AmmarClaw/1.25 (ammar@example.com)", "en"); page = wiki.page(q); print(page.summary[:5000] if page.exists() else "Page not found.")`;
+        const child = spawn('python3', ['-c', pythonCode]);
+        child.stdin.write(query);
+        child.stdin.end();
+        return new Promise((resolve) => {
+            let stdout = '';
+            child.stdout.on('data', (d) => stdout += d);
+            child.on('close', () => resolve(stdout));
+        });
     } catch (error: any) {
         return `Error: ${error.message}`;
     }
@@ -487,9 +511,15 @@ const telegraphCreatePage: Tool = {
   },
   execute: async ({ title, content, author_name }: { title: string, content: string, author_name?: string }) => {
     try {
-        const pythonCode = `from telegraph import Telegraph; t = Telegraph(); t.create_account(short_name="AmmarClaw"); response = t.create_page("${title.replace(/"/g, '\\"')}", html_content="${content.replace(/"/g, '\\"')}", author_name="${(author_name || 'AmmarClaw').replace(/"/g, '\\"')}"); print(response['url'])`;
-        const { stdout } = await execAsync(`python3 -c '${pythonCode}'`, {} as any) as any;
-        return `Page created: ${stdout.trim()}`;
+        const pythonCode = `from telegraph import Telegraph; import sys; t = Telegraph(); t.create_account(short_name="AmmarClaw"); response = t.create_page(input(), html_content=input(), author_name=input()); print(response['url'])`;
+        const child = spawn('python3', ['-c', pythonCode]);
+        child.stdin.write(`${title}\n${content}\n${author_name || 'AmmarClaw'}\n`);
+        child.stdin.end();
+        return new Promise((resolve) => {
+            let stdout = '';
+            child.stdout.on('data', (d) => stdout += d);
+            child.on('close', () => resolve(`Page created: ${stdout.trim()}`));
+        });
     } catch (error: any) {
         return `Error creating Telegraph page: ${error.message}`;
     }
@@ -600,6 +630,84 @@ const listFiles: Tool = {
       return entries.map(e => `${e.isDirectory() ? '[DIR]' : '[FILE]'} ${e.name}`).join('\n') || "Directory is empty.";
     } catch (error: any) {
       return `Error: ${error.message}`;
+    }
+  }
+};
+
+const zipDirectory: Tool = {
+  name: 'zip_directory',
+  description: 'Create a ZIP archive of a directory.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      dir_path: { type: SchemaType.STRING, description: 'Relative path to the directory' },
+      output_zip: { type: SchemaType.STRING, description: 'Relative path for the output ZIP file' }
+    },
+    required: ['dir_path', 'output_zip']
+  },
+  execute: async ({ dir_path, output_zip }: { dir_path: string, output_zip: string }) => {
+    try {
+      const safeDirPath = path.join(process.cwd(), dir_path.replace(/^(\.\.[/\\])+/, ''));
+      const safeZipPath = path.join(process.cwd(), output_zip.replace(/^(\.\.[/\\])+/, ''));
+      await execAsync(`zip -r "${safeZipPath}" .`, { cwd: safeDirPath } as any);
+      return `Successfully zipped ${dir_path} into ${output_zip}.`;
+    } catch (error: any) {
+      return `Error zipping directory: ${error.message}`;
+    }
+  }
+};
+
+const unzipFile: Tool = {
+  name: 'unzip_file',
+  description: 'Extract a ZIP archive.',
+  requiresApproval: true,
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      zip_path: { type: SchemaType.STRING, description: 'Relative path to the ZIP file' },
+      output_dir: { type: SchemaType.STRING, description: 'Relative path for the output directory' }
+    },
+    required: ['zip_path', 'output_dir']
+  },
+  execute: async ({ zip_path, output_dir }: { zip_path: string, output_dir: string }) => {
+    try {
+      const safeZipPath = path.join(process.cwd(), zip_path.replace(/^(\.\.[/\\])+/, ''));
+      const safeOutputDir = path.join(process.cwd(), output_dir.replace(/^(\.\.[/\\])+/, ''));
+      await fs.mkdir(safeOutputDir, { recursive: true });
+      await execAsync(`unzip "${safeZipPath}" -d "${safeOutputDir}"`, {} as any);
+      return `Successfully unzipped ${zip_path} into ${output_dir}.`;
+    } catch (error: any) {
+      return `Error unzipping file: ${error.message}`;
+    }
+  }
+};
+
+const searchFilesContent: Tool = {
+  name: 'search_files_content',
+  description: 'Search for a string or regex pattern within files (like grep).',
+  parameters: {
+    type: SchemaType.OBJECT,
+    properties: {
+      pattern: { type: SchemaType.STRING, description: 'Search pattern' },
+      path: { type: SchemaType.STRING, description: 'Relative path to start search (default: ".")' }
+    },
+    required: ['pattern']
+  },
+  execute: async ({ pattern, path: searchPath }: { pattern: string, path?: string }) => {
+    try {
+      const safePath = path.join(process.cwd(), (searchPath || '.').replace(/^(\.\.[/\\])+/, ''));
+      const child = spawn('grep', ['-rnE', pattern, '.'], { cwd: safePath });
+      return new Promise((resolve) => {
+          let stdout = '';
+          child.stdout.on('data', (d) => stdout += d);
+          child.on('close', (code) => {
+              if (code === 1) resolve("No matches found.");
+              resolve(stdout || "No matches found.");
+          });
+      });
+    } catch (error: any) {
+      return `Error searching files: ${error.message}`;
     }
   }
 };
@@ -1051,6 +1159,7 @@ const tools = [
   context7ResolveLibrary, context7QueryDocs,
   jinaReader,
   createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory,
+  zipDirectory, unzipFile, searchFilesContent,
   sendTelegramMedia, calculator, generateQrCode, duckduckgoSearch, wikipediaSearch, devdocsSearch, telegraphCreatePage
 ];
 tools.forEach(t => registry.register(t));

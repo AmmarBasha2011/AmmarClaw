@@ -9,7 +9,7 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **V1.11**: Multi-modal support (Photos/Video/Audio), integrated Supabase/Weather/RSS/Icons8/NPM/Flights MCPs, and native Context7 CLI.
 *   **V1.2**: Advanced File Management (Recursive/Dirs), ZIP-based Netlify deployments, and Jina AI DeepSearch fallback.
 *   **V1.21**: AI OS Persona, 100k output tokens, 2M input context window, and enhanced workspace cleanup.
-*   **V1.25 (Latest)**: Multi-Mode reasoning (Plan/Thinking), 13+ MCP servers, native advanced tools (Calculator, QR, DDG, Wikipedia), and refined sequential fallback logic.
+*   **V1.25 (Latest)**: Multi-Mode reasoning (Plan/Thinking), 13+ MCP servers, native advanced tools (Calculator, QR, DDG, Wikipedia), and refined sequential fallback logic with 429 quota extraction.
 
 ## ✨ Key Capabilities
 
@@ -19,7 +19,7 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
     *   **Normal Mode**: Fast and precise task execution.
     *   **Thinking Mode**: AI shares its raw internal reasoning and "Chain of Thought".
     *   **Plan Mode**: AI creates a visual checklist and tracks sub-tasks with progress indicators.
-*   **Autonomous Project Orchestration**: Build entire project structures locally and deploy them instantly to Netlify as a directory-level ZIP.
+*   **Autonomous Project Orchestration**: Build entire project structures locally, zip/unzip them, and deploy instantly to Netlify as a directory-level ZIP.
 *   **Self-Healing Environment**: Automatically captures and persists Smithery session IDs to `.env` and manages workspace cleanup.
 *   **Sequential Intelligence Fallback**:
     1.  **Primary**: Primary Gemini 3 Flash (Exhaustive retry across all 11+ keys).
@@ -35,7 +35,7 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 | `/auto [task]` | Run without manual tool approvals |
 | `/mode [plan\|thinking\|normal]` | Switch agent reasoning mode for the current task |
 | `/schedule every [n] [unit] [task]` | Automate a task |
-| `/status` | System report, total tool count (Native + MCP), and version info |
+| `/status` | System report, tool counts (Native/MCP/Total), and version info |
 | `/clear` | Clear history AND wipe AI-created workspace files |
 | `/reload` | Refresh all authorized MCP connections |
 | `/end` | Stop the current active task |
@@ -45,7 +45,7 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **Brain**: Google Gemini 3 Flash (Primary), Jina DeepSearch, Groq (Llama 3.3).
 *   **Memory**: Supabase (Postgres) + local file persistence.
 *   **Interface**: Telegram Bot API via `grammy`.
-*   **Tools**: Smithery Connect (MCP), Python 3.12 (Data analysis/Charts), `ctx7` CLI.
+*   **Tools**: Smithery Connect (MCP), Python 3.12 (Data analysis/Charts/QR), `ctx7` CLI.
 
 ## ⚙️ Setup
 

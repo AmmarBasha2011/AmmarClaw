@@ -23,13 +23,21 @@ export class Agent {
     mode: AgentMode = 'normal',
     onThinking?: (thoughts: string) => Promise<void>
   ): Promise<string> {
-    // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
-    await this.memory.addMessage('user', input);
-
     let currentPlan: { task: string, completed: boolean }[] = [];
+
+    let processedInput = input;
+    if (mode === 'plan') {
+        processedInput = `SYSTEM: You are in PLAN MODE. First, analyze the task and create a numbered list of sub-tasks needed to complete it. Then start executing them one by one.\n\nUSER INPUT: ${input}`;
+    } else if (mode === 'thinking') {
+        processedInput = `SYSTEM: You are in THINKING MODE. Before taking any action or giving a final response, share your detailed step-by-step internal reasoning.\n\nUSER INPUT: ${input}`;
+    }
+
+    // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
+    await this.memory.addMessage('user', processedInput);
 
     let loopCount = 0;
     while (true) {
+      loopCount++;
       if (signal?.aborted) {
           console.log("[Agent] Task aborted by user.");
           return "🛑 Task was ended by user.";
@@ -57,14 +65,10 @@ export class Agent {
       try {
         console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
 
-        let promptWithPlan = input;
-        if (mode === 'plan') {
-            if (loopCount === 1) {
-                promptWithPlan = `SYSTEM: You are in PLAN MODE. First, analyze the task and create a numbered list of sub-tasks needed to complete it. Then start executing them one by one.\n\nUSER INPUT: ${input}`;
-            } else if (currentPlan.length > 0) {
-                const planStr = currentPlan.map((t, i) => `${i+1}. ${t.task} [${t.completed ? '✅' : '⏳'}]`).join('\n');
-                promptWithPlan = `SYSTEM: Current Plan:\n${planStr}\n\nContinue with the next step.`;
-            }
+        if (mode === 'plan' && loopCount > 1 && currentPlan.length > 0) {
+            const planStr = currentPlan.map((t, i) => `${i+1}. ${t.task} [${t.completed ? '✅' : '⏳'}]`).join('\n');
+            const planMsg = `SYSTEM: Current Plan progress:\n${planStr}\n\nContinue executing the plan.`;
+            chatHistory.push({ role: 'user', content: planMsg });
         }
 
         response = await this.llm.generate(chatHistory, "gemini-3-flash-preview");
