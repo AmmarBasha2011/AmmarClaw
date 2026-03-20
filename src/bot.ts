@@ -36,6 +36,7 @@ bot.command('help', (ctx) => {
         "/auth - Link accounts (Google/YouTube/GitHub)\n" +
         "/auto [task] - Run without manual tool approvals\n" +
         "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
+        "/model [Gemini|GeminiLite|Groq] - Select specific model\n" +
         "/schedule every [n] [unit] [task] - Automate a task\n" +
         "/schedules - List active automated tasks\n" +
         "/unschedule [id] - Remove a task\n" +
@@ -207,8 +208,9 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
     let processedText = text;
     let autoMode = false;
     let mode: 'normal' | 'plan' | 'thinking' = 'normal';
+    let modelOverride: 'Gemini' | 'GeminiLite' | 'Groq' | undefined;
 
-    // Flexible parsing for /auto and /mode at start or end
+    // Flexible parsing for /auto, /mode, and /model at start or end
     const autoRegex = /\/auto\b/gi;
     if (autoRegex.test(processedText)) {
         autoMode = true;
@@ -224,6 +226,13 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
         processedText = processedText.replace(modeRegex, '').trim();
     }
 
+    const modelRegex = /\/model\s+(Gemini|GeminiLite|Groq)\b/gi;
+    const modelMatches = [...processedText.matchAll(modelRegex)];
+    if (modelMatches.length > 0) {
+        modelOverride = modelMatches[0][1] as any;
+        processedText = processedText.replace(modelRegex, '').trim();
+    }
+
     try {
         const response = await agent.run(userId, processedText, async (name, args, status) => {
             if (status === 'executing') await ctx.reply(`🛠 AI Using Tool [${name}]`);
@@ -233,7 +242,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[]) {
             await ctx.reply(`🔄 *${msg}*...`, { parse_mode: 'Markdown' });
         }, mode, async (thoughts) => {
             await sendChunks(ctx, `💡 *AI Thinking*:\n${thoughts}`, { parse_mode: 'Markdown' });
-        });
+        }, modelOverride);
 
         if (response && response.trim().length > 0) {
             await sendChunks(ctx, response, { parse_mode: 'Markdown' });

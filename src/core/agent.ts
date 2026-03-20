@@ -20,15 +20,18 @@ export class Agent {
     media?: MediaData[],
     onFallback?: (provider: string) => Promise<void>,
     mode: AgentMode = 'normal',
-    onThinking?: (thoughts: string) => Promise<void>
+    onThinking?: (thoughts: string) => Promise<void>,
+    modelOverride?: 'Gemini' | 'GeminiLite' | 'Groq'
   ): Promise<string> {
     let currentPlan: { task: string, completed: boolean }[] = [];
 
-    let processedInput = input;
+    const now = new Date().toLocaleString('en-US', { timeZone: 'UTC' });
+    let processedInput = `[System Time: ${now} UTC]\n\n${input}`;
+
     if (mode === 'plan') {
-        processedInput = `SYSTEM: You are in PLAN MODE. First, analyze the task and create a numbered list of sub-tasks needed to complete it. Then start executing them one by one.\n\nUSER INPUT: ${input}`;
+        processedInput = `SYSTEM: You are in PLAN MODE. First, analyze the task and create a numbered list of sub-tasks needed to complete it. Then start executing them one by one.\n\nUSER INPUT: ${processedInput}`;
     } else if (mode === 'thinking') {
-        processedInput = `SYSTEM: You are in THINKING MODE. Before taking any action or giving a final response, share your detailed step-by-step internal reasoning.\n\nUSER INPUT: ${input}`;
+        processedInput = `SYSTEM: You are in THINKING MODE. Before taking any action or giving a final response, share your detailed step-by-step internal reasoning.\n\nUSER INPUT: ${processedInput}`;
     }
 
     // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
@@ -61,15 +64,22 @@ export class Agent {
       // 3. Call LLM
       let response: any;
       try {
-        console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
+        if (modelOverride) {
+            console.log(`[Agent] Turn ${loopCount}: Calling ${modelOverride} (Override)...`);
+            const targetModel = modelOverride === 'Gemini' ? 'gemini-3-flash-preview' : modelOverride === 'GeminiLite' ? 'gemini-3.1-flash-lite-preview' : 'openai/gpt-oss-120b';
+            const provider = (modelOverride === 'Groq') ? this.fallbackLLM : this.llm;
+            response = await provider.generate(chatHistory, targetModel, signal);
+        } else {
+            console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
 
-        if (mode === 'plan' && loopCount > 1 && currentPlan.length > 0) {
-            const planStr = currentPlan.map((t, i) => `${i+1}. ${t.task} [${t.completed ? '✅' : '⏳'}]`).join('\n');
-            const planMsg = `SYSTEM: Current Plan progress:\n${planStr}\n\nContinue executing the plan.`;
-            chatHistory.push({ role: 'user', content: planMsg });
+            if (mode === 'plan' && loopCount > 1 && currentPlan.length > 0) {
+                const planStr = currentPlan.map((t, i) => `${i+1}. ${t.task} [${t.completed ? '✅' : '⏳'}]`).join('\n');
+                const planMsg = `SYSTEM: Current Plan progress:\n${planStr}\n\nContinue executing the plan.`;
+                chatHistory.push({ role: 'user', content: planMsg });
+            }
+
+            response = await this.llm.generate(chatHistory, "gemini-3-flash-preview", signal);
         }
-
-        response = await this.llm.generate(chatHistory, "gemini-3-flash-preview", signal);
 
         // Mode Specific logic
         if (response.rawParts) {
@@ -92,6 +102,7 @@ export class Agent {
             }
         }
       } catch (error: any) {
+        if (modelOverride) throw error; // Don't fallback if model is explicitly requested
         console.warn("[Agent] Gemini Primary failed. Trying Gemini Lite...");
         if (onFallback) await onFallback("Switching to smaller model");
 

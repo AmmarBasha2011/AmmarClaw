@@ -987,20 +987,6 @@ const netlifyDeploy: Tool = {
   }
 };
 
-const getCurrentTime: Tool = {
-  name: 'get_current_time',
-  description: 'Get current time.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      timezone: { type: SchemaType.STRING, description: 'Timezone (default UTC)' }
-    }
-  },
-  execute: async ({ timezone }: { timezone?: string }) => {
-    return new Date().toLocaleString('en-US', { timeZone: timezone || 'UTC' });
-  }
-};
-
 const getWebsiteContent: Tool = {
   name: 'get_website_content',
   description: 'Fetch website text.',
@@ -1110,7 +1096,7 @@ const tools = [
   driveSearch, driveDeleteFile, driveCreateFolder,
   bloggerListBlogs, bloggerCreatePost, mapsSearchPlaces,
   netlifyListSites, netlifyDeploy, netlifyDeployDirectory, netlifyDeleteSite, netlifyGetSite,
-  getCurrentTime, getWebsiteContent,
+  getWebsiteContent,
   context7ResolveLibrary, context7QueryDocs,
   createDirectory, moveFile, copyFile, listFilesRecursive, deleteDirectory,
   zipDirectory, unzipFile, searchFilesContent,
