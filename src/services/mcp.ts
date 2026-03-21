@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID' | 'GMAIL_CONNECTION_ID' | 'EXCALIDRAW_CONNECTION_ID' | 'CANVA_CONNECTION_ID' | 'MAPS_CONNECTION_ID' | 'CHARTS_CONNECTION_ID' | 'PAYPAL_CONNECTION_ID' | 'EXCEL_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID' | 'GMAIL_CONNECTION_ID' | 'EXCALIDRAW_CONNECTION_ID' | 'CANVA_CONNECTION_ID' | 'MAPS_CONNECTION_ID' | 'CHARTS_CONNECTION_ID' | 'PAYPAL_CONNECTION_ID' | 'EXCEL_CONNECTION_ID' | 'BRAVE_CONNECTION_ID' | 'NOTION_CONNECTION_ID' | 'SLACK_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -197,6 +197,33 @@ export class MCPService {
             name: 'Excel',
             mcpUrl: 'https://excel-mcp-server--pksolanki2000.run.tools',
             connectionIdKey: 'EXCEL_CONNECTION_ID'
+        });
+        this.instances.set('brave-search', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Brave Search',
+            mcpUrl: 'https://brave-search.run.tools',
+            connectionIdKey: 'BRAVE_CONNECTION_ID'
+        });
+        this.instances.set('notion', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Notion',
+            mcpUrl: 'https://notion.run.tools',
+            connectionIdKey: 'NOTION_CONNECTION_ID'
+        });
+        this.instances.set('slack', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Slack',
+            mcpUrl: 'https://slack.run.tools',
+            connectionIdKey: 'SLACK_CONNECTION_ID'
         });
     }
 

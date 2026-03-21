@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Groq } from 'groq-sdk';
+import OpenAI from 'openai';
+import { puter } from '@heyputer/puter.js';
 import { config } from '../../config/env.js';
 import { registry } from '../../tools/index.js';
 
@@ -230,6 +232,95 @@ FORMATTING RULES (CRITICAL):
   }
 }
 
+export class GitHubModelsProvider implements LLMProvider {
+    private client: OpenAI;
+
+    constructor() {
+        this.client = new OpenAI({
+            apiKey: config.GITHUB_TOKEN,
+            baseURL: "https://models.inference.ai.azure.com"
+        });
+    }
+
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await this.client.chat.completions.create({
+            messages,
+            model: modelOverride || "gpt-4o",
+            temperature: 0.7,
+            max_tokens: 4096,
+        }, { signal });
+
+        return { text: response.choices[0]?.message?.content || "No response." };
+    }
+}
+
+export class OpenRouterWebProvider implements LLMProvider {
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${config.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: modelOverride || "minimax/minimax-m2.5:free",
+                messages
+            }),
+            signal
+        });
+
+        const data = await response.json();
+        return { text: data.choices?.[0]?.message?.content || "No response from OpenRouter." };
+    }
+}
+
+export class PuterProvider implements LLMProvider {
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const lastMsg = history[history.length - 1].content;
+        // Simplified for Puter.js as it often handles single prompt or we join
+        const prompt = history.map(m => `${m.role}: ${m.content}`).join('\n');
+
+        try {
+            const response = await (puter.ai as any).chat(prompt, {
+                model: modelOverride || "anthropic/claude-3.5-sonnet"
+            });
+            return { text: response.message.content };
+        } catch (err: any) {
+            throw new Error(`Puter Error: ${err.message}`);
+        }
+    }
+}
+
 export class GroqProvider implements LLMProvider {
   private client: Groq;
 
@@ -279,4 +370,7 @@ export class GroqProvider implements LLMProvider {
 
 // Export singleton instances for easy usage
 export const geminiProvider = new GeminiProvider();
+export const githubModelsProvider = new GitHubModelsProvider();
+export const openRouterWebProvider = new OpenRouterWebProvider();
+export const puterProvider = new PuterProvider();
 export const groqProvider = new GroqProvider();

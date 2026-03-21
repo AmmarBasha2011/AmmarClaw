@@ -38,6 +38,10 @@ const envSchema = z.object({
   JULES_API_KEY: z.string().optional(),
   STITCH_API_KEY: z.string().optional(),
   KOYEB_API_KEY: z.string().optional(),
+  OPENROUTER_API_KEY: z.string().optional(),
+  BRAVE_CONNECTION_ID: z.string().optional(),
+  NOTION_CONNECTION_ID: z.string().optional(),
+  SLACK_CONNECTION_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

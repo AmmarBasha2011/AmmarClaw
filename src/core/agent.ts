@@ -1,12 +1,15 @@
 import { registry } from '../tools/index.js';
-import { LLMProvider, ChatMessage, MediaData } from '../services/llm/index.js';
-import { MemoryService } from '../services/memory.js';
+import { LLMProvider, ChatMessage, MediaData, geminiProvider, githubModelsProvider, openRouterWebProvider, puterProvider, groqProvider } from '../services/llm/index.js';
+import { MemoryService, memory } from '../services/memory.js';
 
 export type AgentMode = 'normal' | 'plan' | 'thinking';
 
 export class Agent {
   constructor(
     private llm: LLMProvider, 
+    private githubLLM: LLMProvider,
+    private openRouterLLM: LLMProvider,
+    private puterLLM: LLMProvider,
     private fallbackLLM: LLMProvider,
     private memory: MemoryService
   ) {}
@@ -21,7 +24,7 @@ export class Agent {
     onFallback?: (provider: string) => Promise<void>,
     mode: AgentMode = 'normal',
     onThinking?: (thoughts: string) => Promise<void>,
-    modelOverride?: 'Gemini' | 'GeminiLite' | 'Groq',
+    modelOverride?: 'Gemini' | 'GeminiLite' | 'GitHub' | 'OpenRouter' | 'Puter' | 'Groq',
     notReturn?: boolean
   ): Promise<string> {
     let currentPlan: { task: string, completed: boolean }[] = [];
@@ -39,7 +42,7 @@ export class Agent {
         processedInput = `SYSTEM: [NOT RETURN MODE ENABLED] You are in a fully autonomous mode. You MUST NOT ask the user any questions, seek clarification, or wait for input until you have fully completed the entire task. If you encounter an obstacle, use your tools to solve it or find an alternative route. Your only response should be the final completed result or a terminal failure report if all tools/attempts failed. DO NOT ASK ANYTHING. JUST DO.\n\n${processedInput}`;
     }
 
-    // 1. Save User Message (Note: media is currently not persisted in DB but used for current turn)
+    // 1. Save User Message
     await this.memory.addMessage('user', processedInput);
 
     let loopCount = 0;
@@ -50,13 +53,24 @@ export class Agent {
           return "🛑 Task was ended by user.";
       }
 
-      // 2. Get History from DB and convert to ChatMessage[]
-      const dbHistory = await this.memory.getHistory(40);
+      // 2. Get History from DB
+      const historyDepth = 40;
+      const dbHistory = await this.memory.getHistory(historyDepth);
       const chatHistory: ChatMessage[] = dbHistory.map(m => ({
         role: m.role as 'user' | 'assistant' | 'function',
         content: m.content,
         name: m.name,
       }));
+
+      // Helper to trim history for non-Gemini models
+      const getFallbackHistory = async (limit: number = 15) => {
+          const fallbackDb = await this.memory.getHistory(limit);
+          return fallbackDb.map(m => ({
+              role: m.role as 'user' | 'assistant' | 'function',
+              content: m.content,
+              name: m.name,
+          }));
+      };
 
       // Attach media to the LAST user message if it's the first turn
       if (loopCount === 1 && media && media.length > 0) {
@@ -71,9 +85,30 @@ export class Agent {
       try {
         if (modelOverride) {
             console.log(`[Agent] Turn ${loopCount}: Calling ${modelOverride} (Override)...`);
-            const targetModel = modelOverride === 'Gemini' ? 'gemini-3-flash-preview' : modelOverride === 'GeminiLite' ? 'gemini-3.1-flash-lite-preview' : 'openai/gpt-oss-120b';
-            const provider = (modelOverride === 'Groq') ? this.fallbackLLM : this.llm;
-            response = await provider.generate(chatHistory, targetModel, signal);
+            let targetModel = "";
+            let provider = this.llm;
+            let targetHistory = chatHistory;
+
+            if (modelOverride === 'Gemini') targetModel = 'gemini-3-flash-preview';
+            else if (modelOverride === 'GeminiLite') targetModel = 'gemini-3.1-flash-lite-preview';
+            else if (modelOverride === 'GitHub') {
+                provider = this.githubLLM; targetModel = 'gpt-4o';
+                targetHistory = await getFallbackHistory(15);
+            }
+            else if (modelOverride === 'OpenRouter') {
+                provider = this.openRouterLLM; targetModel = 'minimax/minimax-m2.5:free';
+                targetHistory = await getFallbackHistory(15);
+            }
+            else if (modelOverride === 'Puter') {
+                provider = this.puterLLM; targetModel = 'anthropic/claude-3.5-sonnet';
+                targetHistory = await getFallbackHistory(10);
+            }
+            else if (modelOverride === 'Groq') {
+                provider = this.fallbackLLM; targetModel = 'openai/gpt-oss-120b';
+                targetHistory = await getFallbackHistory(10);
+            }
+
+            response = await provider.generate(targetHistory, targetModel, signal);
         } else {
             console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
 
@@ -85,58 +120,80 @@ export class Agent {
 
             response = await this.llm.generate(chatHistory, "gemini-3-flash-preview", signal);
         }
-
-        // Mode Specific logic
-        if (response.rawParts) {
-            const thoughts = response.rawParts.find((p: any) => (p as any).thought)?.thought || response.text;
-
-            if (mode === 'thinking' && onThinking) {
-                await onThinking(thoughts);
-            }
-
-            if (mode === 'plan' && currentPlan.length === 0) {
-                // If we haven't extracted a plan yet, search both text and thoughts
-                const planSource = `${response.text}\n${thoughts}`;
-                const lines = planSource.split('\n');
-                const planLines = lines.filter((l: string) => /^\d+\./.test(l.trim()));
-
-                if (planLines.length > 0) {
-                    currentPlan = planLines.map((l: string) => ({ task: l.replace(/^\d+\.\s*/, '').trim(), completed: false }));
-                    if (onThinking) await onThinking(`📋 *Plan Created*:\n\n` + currentPlan.map((t, i) => `${i+1}. ${t.task} ⏳`).join('\n'));
-                }
-            }
-        }
       } catch (error: any) {
-        if (modelOverride) throw error; // Don't fallback if model is explicitly requested
+        if (modelOverride) throw error;
         console.warn("[Agent] Gemini Primary failed. Trying Gemini Lite...");
         if (onFallback) await onFallback("Switching to smaller model");
 
         try {
             response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview", signal);
         } catch (liteError: any) {
-            console.error("[Agent] Gemini Lite failed. Switching to Groq fallback...");
-            if (onFallback) await onFallback("Switching to Groq Cloud");
+            console.error("[Agent] Gemini Lite failed. Switching to GitHub Models...");
+            if (onFallback) await onFallback("Switching to GitHub Models (GPT-4o)");
 
             try {
-                // Using openai/gpt-oss-120b as requested
-                response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b", signal);
-            } catch (fallbackError: any) {
-                console.error("[Agent] All LLMs failed.", fallbackError);
-                let delay = "some";
-                if (error.message.startsWith('QUOTA_EXCEEDED:')) {
-                    delay = error.message.split(':')[1];
-                } else {
-                    const delayMatch = error.message.match(/retry in (\d+)s/);
-                    if (delayMatch) delay = delayMatch[1];
+                const fallbackHistory = await getFallbackHistory(15);
+                response = await this.githubLLM.generate(fallbackHistory, "gpt-4o", signal);
+            } catch (githubError: any) {
+                console.error("[Agent] GitHub Models failed. Switching to OpenRouter...");
+                if (onFallback) await onFallback("Switching to OpenRouter (MiniMax)");
+
+                try {
+                    const fallbackHistory = await getFallbackHistory(15);
+                    response = await this.openRouterLLM.generate(fallbackHistory, "minimax/minimax-m2.5:free", signal);
+                } catch (orError: any) {
+                    console.error("[Agent] OpenRouter failed. Switching to Puter.js...");
+                    if (onFallback) await onFallback("Switching to Puter.js (Claude)");
+
+                    try {
+                        const fallbackHistory = await getFallbackHistory(10);
+                        response = await this.puterLLM.generate(fallbackHistory, "anthropic/claude-3.5-sonnet", signal);
+                    } catch (puterError: any) {
+                        console.error("[Agent] Puter failed. Switching to Groq fallback...");
+                        if (onFallback) await onFallback("Switching to Groq Cloud");
+
+                        try {
+                            const fallbackHistory = await getFallbackHistory(10);
+                            response = await this.fallbackLLM.generate(fallbackHistory, "openai/gpt-oss-120b", signal);
+                        } catch (fallbackError: any) {
+                            console.error("[Agent] All LLMs failed.", fallbackError);
+                            let delay = "some";
+                            if (error.message.startsWith('QUOTA_EXCEEDED:')) {
+                                delay = error.message.split(':')[1];
+                            } else {
+                                const delayMatch = error.message.match(/retry in (\d+)s/);
+                                if (delayMatch) delay = delayMatch[1];
+                            }
+                            return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
+                        }
+                    }
                 }
-                return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
             }
         }
       }
 
+      // Mode Specific logic
+      if (response.rawParts) {
+          const thoughts = response.rawParts.find((p: any) => (p as any).thought)?.thought || response.text;
+
+          if (mode === 'thinking' && onThinking) {
+              await onThinking(thoughts);
+          }
+
+          if (mode === 'plan' && currentPlan.length === 0) {
+              const planSource = `${response.text}\n${thoughts}`;
+              const lines = planSource.split('\n');
+              const planLines = lines.filter((l: string) => /^\d+\./.test(l.trim()));
+
+              if (planLines.length > 0) {
+                  currentPlan = planLines.map((l: string) => ({ task: l.replace(/^\d+\.\s*/, '').trim(), completed: false }));
+                  if (onThinking) await onThinking(`📋 *Plan Created*:\n\n` + currentPlan.map((t, i) => `${i+1}. ${t.task} ⏳`).join('\n'));
+              }
+          }
+      }
+
       // 4. Handle Response
       if (response.toolCalls && response.toolCalls.length > 0) {
-        // Store the full response including rawParts to preserve thought_signature and text
         const toolCallMsg = JSON.stringify({
             type: 'tool_call',
             calls: response.toolCalls,
@@ -144,41 +201,28 @@ export class Agent {
         });
         await this.memory.addMessage('assistant', toolCallMsg);
 
-        // Execute Tools
         for (const call of response.toolCalls) {
           if (signal?.aborted) break;
           const tool = registry.get(call.name);
           
-          // Check for Approval (Skip if autoMode is true)
           if (tool?.requiresApproval && !autoMode) {
-              console.log(`[Agent] Tool ${call.name} requires approval. Pausing.`);
               await this.memory.setPendingAction(call.name, call.args);
               if (onToolCall) await onToolCall(call.name, call.args, 'pending');
-              
               const displayArgs = JSON.stringify(call.args, null, 2);
-              const truncatedArgs = displayArgs.length > 1500 
-                ? displayArgs.substring(0, 1500) + "\n... [Parameters truncated for length]" 
-                : displayArgs;
-
+              const truncatedArgs = displayArgs.length > 1500 ? displayArgs.substring(0, 1500) + "\n... [Truncated]" : displayArgs;
               return `⚠️ *Permission Required*\n\nTool: \`${call.name}\`\nParameters:\n\`\`\`json\n${truncatedArgs}\n\`\`\`\n\nReply with *Approve* or *Cancel*.`;
           }
 
-          console.log(`[Agent] Executing tool: ${call.name}`);
           if (onToolCall) await onToolCall(call.name, call.args, 'executing');
-          
           let result;
           try {
             result = await registry.execute(call.name, call.args);
           } catch (e: any) {
             result = `Error: ${e.message}`;
           }
-
           if (onToolCall) await onToolCall(call.name, call.args, 'completed', result);
-          
-          // Store Tool Result
           await this.memory.addMessage('function', result, call.name);
 
-          // If in plan mode, try to mark tasks as completed
           if (mode === 'plan' && currentPlan.length > 0) {
               const uncompleted = currentPlan.find(t => !t.completed);
               if (uncompleted) {
@@ -190,12 +234,9 @@ export class Agent {
               }
           }
         }
-
-        // After tool execution, loop back to LLM for next thought
         continue;
       }
 
-      // 5. Final Text Response
       await this.memory.addMessage('assistant', response.text);
       return response.text;
     }
@@ -216,10 +257,6 @@ export class Agent {
       await this.memory.addMessage('function', result, pending.name);
       await this.memory.clearPendingAction();
 
-      // We don'tuserId here, but for history we might need it. 
-      // For now, just return text. Note: This won't trigger another AI turn automatically.
-      // Usually after approval, we want the AI to see the result and give a final answer.
-      // So we call run again with a dummy input or just process the history.
       return await this.run("system", "The tool was approved and executed. Please provide the final response based on the result above.");
     } catch (error: any) {
       await this.memory.clearPendingAction();
@@ -228,9 +265,4 @@ export class Agent {
   }
 }
 
-// Export a singleton instance? Not really needed if we inject dependencies
-// But we use it in bot.ts
-import { geminiProvider, groqProvider } from '../services/llm/index.js';
-import { memory } from '../services/memory.js';
-
-export const agent = new Agent(geminiProvider, groqProvider, memory);
+export const agent = new Agent(geminiProvider, githubModelsProvider, openRouterWebProvider, puterProvider, groqProvider, memory);
