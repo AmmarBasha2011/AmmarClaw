@@ -221,7 +221,7 @@ const koyebListDeployments: Tool = {
   },
   execute: async ({ serviceId }: { serviceId?: string }) => {
     try {
-      const res = await axios.get('https://api.koyeb.com/v1/deployments', {
+      const res = await axios.get('https://app.koyeb.com/v1/deployments', {
         params: { service_id: serviceId },
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
@@ -243,7 +243,7 @@ const koyebListInstances: Tool = {
   },
   execute: async ({ serviceId }: { serviceId?: string }) => {
     try {
-      const res = await axios.get('https://api.koyeb.com/v1/instances', {
+      const res = await axios.get('https://app.koyeb.com/v1/instances', {
         params: { service_id: serviceId },
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
@@ -260,7 +260,7 @@ const koyebListDomains: Tool = {
   parameters: { type: SchemaType.OBJECT, properties: {} },
   execute: async () => {
     try {
-      const res = await axios.get('https://api.koyeb.com/v1/domains', {
+      const res = await axios.get('https://app.koyeb.com/v1/domains', {
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
       return JSON.stringify(res.data, null, 2);
@@ -276,7 +276,7 @@ const koyebListSecrets: Tool = {
   parameters: { type: SchemaType.OBJECT, properties: {} },
   execute: async () => {
     try {
-      const res = await axios.get('https://api.koyeb.com/v1/secrets', {
+      const res = await axios.get('https://app.koyeb.com/v1/secrets', {
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
       return JSON.stringify(res.data, null, 2);
@@ -533,7 +533,7 @@ const koyebListApps: Tool = {
   parameters: { type: SchemaType.OBJECT, properties: {} },
   execute: async () => {
     try {
-      const res = await axios.get('https://api.koyeb.com/v1/apps', {
+      const res = await axios.get('https://app.koyeb.com/v1/apps', {
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
       return JSON.stringify(res.data, null, 2);
@@ -554,7 +554,7 @@ const koyebListServices: Tool = {
   },
   execute: async ({ appId }: { appId?: string }) => {
     try {
-      const res = await axios.get('https://api.koyeb.com/v1/services', {
+      const res = await axios.get('https://app.koyeb.com/v1/services', {
         params: { app_id: appId },
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
@@ -577,7 +577,7 @@ const koyebGetApp: Tool = {
   },
   execute: async ({ appId }: { appId: string }) => {
     try {
-      const res = await axios.get(`https://api.koyeb.com/v1/apps/${appId}`, {
+      const res = await axios.get(`https://app.koyeb.com/v1/apps/${appId}`, {
         headers: { Authorization: `Bearer ${config.KOYEB_API_KEY}` }
       });
       return JSON.stringify(res.data, null, 2);
