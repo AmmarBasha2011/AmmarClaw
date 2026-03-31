@@ -312,4 +312,49 @@ bot.catch((err) => {
   console.error("Telegram Bot Error:", err);
 });
 
+import express from 'express';
+
+// 1. إنشاء سيرفر Health Check لضمان بقاء المنصة (Koyeb/Hugging Face) تعمل
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+app.get('/', (req, res) => res.send('🚀 AmmarClaw OS is running!'));
+
+// 2. وظيفة التشغيل الرئيسي (Main Entry Point)
+async function bootstrap() {
+    try {
+        console.log("Starting AmmarClaw...");
+
+        // أ. تشغيل البوت أولاً (أهم خطوة للاتصال بتليجرام)
+        bot.start({
+            onStart: (botInfo) => {
+                console.log(`✅ Telegram Bot connected as @${botInfo.username}`);
+                console.log(`👤 Owner ID: ${config.TELEGRAM_USER_ID}`);
+            }
+        });
+
+        // ب. تشغيل السيرفر الصحي
+        app.listen(Number(PORT), '0.0.0.0', () => {
+            console.log(`📡 Health check listening on port ${PORT}`);
+        });
+
+        // ج. تشغيل الـ MCP والخدمات الأخرى في الخلفية (دون تعطيل البوت)
+        // استخدم Promise.allSettled لضمان أن فشل Google Scholar لا يوقف النظام
+        console.log("🔗 Connecting to services...");
+        Promise.allSettled([
+            mcpService.reload(), // تحميل أدوات الـ MCP
+            scheduler.start()     // تشغيل نظام الجدولة
+        ]).then(() => {
+            console.log("⚙️  All services initialized.");
+        });
+
+    } catch (error) {
+        console.error("❌ Critical Bootstrap Error:", error);
+        process.exit(1);
+    }
+}
+
+// البدء!
+bootstrap();
+
 export { bot };
