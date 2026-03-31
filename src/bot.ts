@@ -12,7 +12,7 @@ import { mcpService } from './services/mcp.js';
 import { registry } from './tools/index.js';
 import { whatsappService } from './services/whatsapp.js';
 
-const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
+const bot = new Bot(config.TELEGRAM_BOT_TOKEN || 'dummy_token');
 
 // Single task lock
 let currentController: AbortController | null = null;

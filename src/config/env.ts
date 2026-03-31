@@ -4,8 +4,8 @@ import { z } from 'zod';
 dotenv.config();
 
 const envSchema = z.object({
-  TELEGRAM_BOT_TOKEN: z.string().min(1, "Bot token is required"),
-  TELEGRAM_USER_ID: z.string().min(1, "User ID is required"),
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_USER_ID: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
   GEMINI_API_KEYS: z.string().min(1, "Gemini API keys are required").transform(s => s.split(',').map(k => k.trim())),
   NETLIFY_AUTH_TOKEN: z.string().min(1, "Netlify token is required"),
@@ -27,15 +27,30 @@ const envSchema = z.object({
   GOOGLE_CREDENTIALS: z.string().optional(),
   GOOGLE_TOKEN: z.string().optional(),
   WHATSAPP_ENABLED: z.string().optional().transform(v => v === 'true'),
+  TELEGRAM_ENABLED: z.string().optional().transform(v => v === 'true').default(false),
+  UI_ENABLED: z.string().optional().transform(v => v !== 'false').default(true),
   GEMINI_PRIMARY_MODEL: z.string().default('gemini-3-flash-preview'),
   GEMINI_SECONDARY_MODEL: z.string().default('gemini-3.1-flash-lite-preview'),
   GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
+}).refine(data => {
+  // Ensure at least one way of access is enabled
+  return data.TELEGRAM_ENABLED || data.WHATSAPP_ENABLED || data.UI_ENABLED;
+}, {
+  message: "❌ At least one interface (Telegram, WhatsApp, or UI) must be enabled."
+}).refine(data => {
+    // If Telegram is enabled, credentials are required
+    if (data.TELEGRAM_ENABLED) {
+        return !!data.TELEGRAM_BOT_TOKEN && !!data.TELEGRAM_USER_ID;
+    }
+    return true;
+}, {
+    message: "❌ TELEGRAM_BOT_TOKEN and TELEGRAM_USER_ID are required when TELEGRAM_ENABLED is true."
 });
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("❌ Invalid environment variables:", parsed.error.format());
+  console.error("❌ Invalid environment variables:", parsed.error.flatten().fieldErrors);
   process.exit(1);
 }
 

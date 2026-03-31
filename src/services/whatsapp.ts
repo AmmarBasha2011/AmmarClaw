@@ -12,6 +12,8 @@ import path from 'path';
 export class WhatsAppService {
     private client: any;
     private isReady: boolean = false;
+    private lastQr: string | null = null;
+    private onQrCallback: ((qr: string) => void) | null = null;
 
     constructor() {
         this.client = new Client({
@@ -20,7 +22,7 @@ export class WhatsAppService {
             }),
             puppeteer: {
                 headless: true,
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -36,15 +38,20 @@ export class WhatsAppService {
 
         this.client.on('qr', async (qr: string) => {
             console.log('[WhatsApp] QR Received');
+            this.lastQr = qr;
+            if (this.onQrCallback) this.onQrCallback(qr);
+
             try {
                 const qrBuffer = await qrcode.toBuffer(qr);
                 const qrPath = path.join(process.cwd(), 'whatsapp_qr.png');
                 await fs.writeFile(qrPath, qrBuffer);
 
-                await bot.api.sendPhoto(config.TELEGRAM_USER_ID, new InputFile(qrPath), {
-                    caption: "📱 *WhatsApp Connection Required*\n\nScan this QR code with your WhatsApp to link AmmarClaw.",
-                    parse_mode: 'Markdown'
-                });
+                if (config.TELEGRAM_ENABLED && config.TELEGRAM_USER_ID) {
+                    await bot.api.sendPhoto(config.TELEGRAM_USER_ID, new InputFile(qrPath), {
+                        caption: "📱 *WhatsApp Connection Required*\n\nScan this QR code with your WhatsApp to link AmmarClaw.",
+                        parse_mode: 'Markdown'
+                    }).catch(err => console.error("Failed to send QR to Telegram:", err));
+                }
 
                 await fs.unlink(qrPath);
             } catch (error) {
@@ -55,7 +62,10 @@ export class WhatsAppService {
         this.client.on('ready', () => {
             console.log('[WhatsApp] Client is ready!');
             this.isReady = true;
-            bot.api.sendMessage(config.TELEGRAM_USER_ID, "✅ *WhatsApp Connected!* AmmarClaw is now monitoring your WhatsApp messages.", { parse_mode: 'Markdown' });
+            this.lastQr = null;
+            if (config.TELEGRAM_ENABLED && config.TELEGRAM_USER_ID) {
+                bot.api.sendMessage(config.TELEGRAM_USER_ID, "✅ *WhatsApp Connected!* AmmarClaw is now monitoring your WhatsApp messages.", { parse_mode: 'Markdown' }).catch(() => {});
+            }
         });
 
         this.client.on('message', async (msg: any) => {
@@ -92,13 +102,17 @@ export class WhatsAppService {
 
         this.client.on('auth_failure', (msg: string) => {
             console.error('[WhatsApp] Auth failure:', msg);
-            bot.api.sendMessage(config.TELEGRAM_USER_ID, `❌ *WhatsApp Auth Failed*: ${msg}`, { parse_mode: 'Markdown' });
+            if (config.TELEGRAM_ENABLED && config.TELEGRAM_USER_ID) {
+                bot.api.sendMessage(config.TELEGRAM_USER_ID, `❌ *WhatsApp Auth Failed*: ${msg}`, { parse_mode: 'Markdown' }).catch(() => {});
+            }
         });
 
         this.client.on('disconnected', (reason: string) => {
             console.log('[WhatsApp] Client disconnected:', reason);
             this.isReady = false;
-            bot.api.sendMessage(config.TELEGRAM_USER_ID, `⚠️ *WhatsApp Disconnected*: ${reason}`, { parse_mode: 'Markdown' });
+            if (config.TELEGRAM_ENABLED && config.TELEGRAM_USER_ID) {
+                bot.api.sendMessage(config.TELEGRAM_USER_ID, `⚠️ *WhatsApp Disconnected*: ${reason}`, { parse_mode: 'Markdown' }).catch(() => {});
+            }
         });
     }
 
@@ -117,10 +131,16 @@ export class WhatsAppService {
         await this.client.sendMessage(to, message);
     }
 
+    onQr(callback: (qr: string) => void) {
+        this.onQrCallback = callback;
+        if (this.lastQr) callback(this.lastQr);
+    }
+
     getStatus() {
         return {
             ready: this.isReady,
-            enabled: config.WHATSAPP_ENABLED
+            enabled: config.WHATSAPP_ENABLED,
+            lastQr: this.lastQr
         };
     }
 }

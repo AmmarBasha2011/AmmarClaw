@@ -148,13 +148,15 @@ export class MCPService {
             }
 
             // Provide connection status and connection ID
-            try {
-                await bot.api.sendMessage(
-                    config.TELEGRAM_USER_ID,
-                    `✅ *${instance.name} MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
-                    { parse_mode: 'Markdown' }
-                );
-            } catch (_e) {}
+            if (config.TELEGRAM_ENABLED && config.TELEGRAM_USER_ID) {
+                try {
+                    await bot.api.sendMessage(
+                        config.TELEGRAM_USER_ID,
+                        `✅ *${instance.name} MCP Connected*\n\nConnection ID: \`${connection.connectionId}\`\n\n_ID has been automatically saved to your .env file._`,
+                        { parse_mode: 'Markdown' }
+                    );
+                } catch (_e) {}
+            }
 
             return true;
         } catch (error: any) {
@@ -163,13 +165,15 @@ export class MCPService {
                 await updateEnv(instance.connectionIdKey, error.connectionId);
                 // Update in-memory config for immediate /reload support
                 (config as any)[instance.connectionIdKey] = error.connectionId;
-                try {
-                    await bot.api.sendMessage(
-                        config.TELEGRAM_USER_ID,
-                        `🔗 *${instance.name} MCP Authorization Required*\n\nPlease visit this URL to authorize:\n${error.authorizationUrl}\n\n*Important*: After authorizing, use /reload to refresh tools.\n\n_Connection ID has been automatically saved to your .env file._`,
-                        { parse_mode: 'Markdown' }
-                    );
-                } catch (_e) {}
+                if (config.TELEGRAM_ENABLED && config.TELEGRAM_USER_ID) {
+                    try {
+                        await bot.api.sendMessage(
+                            config.TELEGRAM_USER_ID,
+                            `🔗 *${instance.name} MCP Authorization Required*\n\nPlease visit this URL to authorize:\n${error.authorizationUrl}\n\n*Important*: After authorizing, use /reload to refresh tools.\n\n_Connection ID has been automatically saved to your .env file._`,
+                            { parse_mode: 'Markdown' }
+                        );
+                    } catch (_e) {}
+                }
             } else {
                 console.error(`[MCP] ${instance.name} Connection Error:`, error.message);
             }
