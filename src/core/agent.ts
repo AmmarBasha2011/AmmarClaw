@@ -50,13 +50,13 @@ export class Agent {
       let response;
       try {
         console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
-        response = await this.llm.generate(chatHistory, "gemini-3-flash-preview");
+        response = await this.llm.generate(chatHistory, config.GEMINI_PRIMARY_MODEL);
       } catch (error: any) {
         console.warn("[Agent] Gemini Primary failed. Trying Gemini Lite...");
         if (onFallback) await onFallback("Switching to smaller model");
 
         try {
-            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview");
+            response = await this.llm.generate(chatHistory, config.GEMINI_SECONDARY_MODEL);
         } catch (liteError: any) {
             console.error("[Agent] Gemini Lite failed. Switching to Jina secondary...");
             if (onFallback) await onFallback("Switching to Jina AI");
@@ -68,8 +68,7 @@ export class Agent {
                 if (onFallback) await onFallback("Switching to Groq Cloud");
 
                 try {
-                  // Using openai/gpt-oss-120b as requested
-                  response = await this.fallbackLLM.generate(chatHistory, "openai/gpt-oss-120b");
+                  response = await this.fallbackLLM.generate(chatHistory, config.GROQ_MODEL);
                 } catch (fallbackError: any) {
                   console.error("[Agent] All LLMs failed.", fallbackError);
                   const delayMatch = error.message.match(/retry in (\d+)s/);
@@ -165,5 +164,6 @@ export class Agent {
 // But we use it in bot.ts
 import { geminiProvider, jinaProvider, groqProvider } from '../services/llm/index.js';
 import { memory } from '../services/memory.js';
+import { config } from '../config/env.js';
 
 export const agent = new Agent(geminiProvider, jinaProvider, groqProvider, memory);

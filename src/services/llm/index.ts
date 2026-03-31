@@ -116,7 +116,7 @@ export class GeminiProvider implements LLMProvider {
       try {
         const genAI = this.getClient();
         const model = genAI.getGenerativeModel({
-          model: modelOverride || "gemini-3-flash-preview",
+          model: modelOverride || config.GEMINI_PRIMARY_MODEL,
           tools: [{ functionDeclarations: registry.getFunctionDeclarations() }],
           systemInstruction: `You are AmmarClaw, Ammar's Personal AI OS Agent. You run locally and use Telegram as your primary interface to manage his digital world. You are powerful, proactive, and secure. You have deep access to files, cloud services, and specialized tools. Your goal is to execute tasks with high precision and provide a seamless "AI OS" experience. Always use tools when needed to interact with the environment.
 
@@ -159,7 +159,7 @@ FORMATTING RULES (CRITICAL):
                 toolCalls.push({
                     name: part.functionCall.name,
                     args: part.functionCall.args,
-                    thought_signature: (part as any).thought_signature 
+                    thought_signature: (part as any).thought_signature
                 });
             }
         }
@@ -268,7 +268,7 @@ export class GroqProvider implements LLMProvider {
 
     const completion = await this.client.chat.completions.create({
       messages: messages,
-      model: modelOverride || "llama-3.3-70b-versatile",
+      model: modelOverride || config.GROQ_MODEL,
       temperature: 0.7,
       max_tokens: 1024,
     });
