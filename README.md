@@ -44,7 +44,6 @@ All configuration is now handled via environment variables. Files like `client_s
 | `GEMINI_API_KEYS` | Comma-separated Gemini API Keys |
 | `SUPABASE_URL` | Supabase Project URL |
 | `SUPABASE_KEY` | Supabase Service Role Key |
-| `GITHUB_TOKEN` | GitHub Personal Access Token |
 | `SMITHERY_API_KEY` | Smithery API Key |
 | `WHATSAPP_ENABLED` | Set to `true` to enable WhatsApp integration |
 | `GOOGLE_CREDENTIALS` | (Optional) Content of `client_secret.json` as a single-line string |

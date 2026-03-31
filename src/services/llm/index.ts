@@ -13,12 +13,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'function';
   content: string;
   name?: string; // For function calls/responses
+  thought_signature?: string; // Gemini 3 Flash requirement
   media?: MediaData[];
 }
 
 export interface LLMResponse {
   text: string;
-  toolCalls?: { name: string; args: any }[];
+  toolCalls?: { name: string; args: any, thought_signature?: string }[];
   rawParts?: any[];
 }
 
@@ -64,7 +65,13 @@ export class GeminiProvider implements LLMProvider {
                   if (Array.isArray(parsed.rawParts)) {
                       return {
                           role: 'model',
-                          parts: parsed.rawParts
+                          parts: parsed.rawParts.map((part: any) => {
+                              // Ensure functionCall parts have a signature for Gemini 3
+                              if (part.functionCall && !part.thought_signature) {
+                                  part.thought_signature = "skip_thought_signature_validator";
+                              }
+                              return part;
+                          })
                       };
                   }
                   // Fallback for old serialized calls format
@@ -72,7 +79,8 @@ export class GeminiProvider implements LLMProvider {
                       return {
                           role: 'model',
                           parts: parsed.calls.map((call: any) => ({
-                              functionCall: { name: call.name, args: call.args }
+                              functionCall: { name: call.name, args: call.args },
+                              thought_signature: call.thought_signature || "skip_thought_signature_validator"
                           }))
                       };
                   }
@@ -108,7 +116,7 @@ export class GeminiProvider implements LLMProvider {
       try {
         const genAI = this.getClient();
         const model = genAI.getGenerativeModel({
-          model: modelOverride || "gemini-2.0-flash",
+          model: modelOverride || "gemini-3-flash-preview",
           tools: [{ functionDeclarations: registry.getFunctionDeclarations() }],
           systemInstruction: `You are AmmarClaw, Ammar's Personal AI OS Agent. You run locally and use Telegram as your primary interface to manage his digital world. You are powerful, proactive, and secure. You have deep access to files, cloud services, and specialized tools. Your goal is to execute tasks with high precision and provide a seamless "AI OS" experience. Always use tools when needed to interact with the environment.
 
@@ -150,7 +158,8 @@ FORMATTING RULES (CRITICAL):
             if (part.functionCall) {
                 toolCalls.push({
                     name: part.functionCall.name,
-                    args: part.functionCall.args
+                    args: part.functionCall.args,
+                    thought_signature: (part as any).thought_signature
                 });
             }
         }
