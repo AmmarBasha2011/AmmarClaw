@@ -27,6 +27,9 @@ const envSchema = z.object({
   GOOGLE_CREDENTIALS: z.string().optional(),
   GOOGLE_TOKEN: z.string().optional(),
   WHATSAPP_ENABLED: z.string().optional().transform(v => v === 'true'),
+  GEMINI_PRIMARY_MODEL: z.string().default('gemini-3-flash-preview'),
+  GEMINI_SECONDARY_MODEL: z.string().default('gemini-3.1-flash-lite-preview'),
+  GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
 });
 
 const parsed = envSchema.safeParse(process.env);
