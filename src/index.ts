@@ -40,9 +40,9 @@ async function main() {
             try {
                 await bot.api.sendMessage(
                     config.TELEGRAM_USER_ID, 
-                    `🌙 *AmmarClaw is awake.*\n\n` +
+                    `🌙 *AmmarClaw V2.0 is awake.*\n\n` +
                     `⚙️ *Mode*: Unlimited\n` +
-                    `📦 *Code Version*: V1.21\n` +
+                    `📦 *Code Version*: V2.0\n` +
                     `🔑 *Gemini Keys*: ${keyCount} loaded\n` +
                     `🔌 *MCP Status*: ${mcpStatus.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
                     `🛠 *MCP Tools*: ${mcpStatus.toolCount} loaded\n` +

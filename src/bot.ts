@@ -10,6 +10,7 @@ import path from 'path';
 import { scheduler } from './services/scheduler.js';
 import { mcpService } from './services/mcp.js';
 import { registry } from './tools/index.js';
+import { whatsappService } from './services/whatsapp.js';
 
 const bot = new Bot(config.TELEGRAM_BOT_TOKEN);
 
@@ -38,6 +39,7 @@ bot.command('help', (ctx) => {
         "/schedules - List active automated tasks\n" +
         "/unschedule [id] - Remove a task\n" +
         "/reload - Refresh MCP tools\n" +
+        "/whatsapp - Connect to WhatsApp\n" +
         "/end - Stop current task\n" +
         "/status - Bot status\n" +
         "/clear - Clear history\n" +
@@ -98,16 +100,26 @@ bot.command('auth', async (ctx) => {
 
 bot.command('status', (ctx) => {
     const status = mcpService.getStatus();
+    const waStatus = whatsappService.getStatus();
     const nativeCount = registry.getNativeToolsCount();
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.21\n` +
-        `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
-        `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
+        `📦 *Code Version*: V2.0\n` +
+        `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'} (${status.toolCount} tools)\n` +
+        `📱 *WhatsApp*: ${waStatus.enabled ? (waStatus.ready ? '✅ Connected' : '⏳ Waiting/Disconnected') : '❌ Disabled'}\n` +
+        `🛠 *Native Tools*: ${nativeCount}\n` +
         `🚀 *Total Tools*: ${total} available`,
         { parse_mode: 'Markdown' }
     );
+});
+
+bot.command('whatsapp', async (ctx) => {
+    if (!config.WHATSAPP_ENABLED) {
+        return ctx.reply("❌ WhatsApp is disabled in your environment configuration.");
+    }
+    await ctx.reply("⏳ Initializing WhatsApp client... Please wait for the QR code.");
+    await whatsappService.start();
 });
 
 bot.command('reload', async (ctx) => {

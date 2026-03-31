@@ -50,13 +50,13 @@ export class Agent {
       let response;
       try {
         console.log(`[Agent] Turn ${loopCount}: Calling Gemini (Primary)...`);
-        response = await this.llm.generate(chatHistory, "gemini-3-flash-preview");
+        response = await this.llm.generate(chatHistory, "gemini-2.0-flash");
       } catch (error: any) {
         console.warn("[Agent] Gemini Primary failed. Trying Gemini Lite...");
         if (onFallback) await onFallback("Switching to smaller model");
 
         try {
-            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview");
+            response = await this.llm.generate(chatHistory, "gemini-1.5-flash");
         } catch (liteError: any) {
             console.error("[Agent] Gemini Lite failed. Switching to Jina secondary...");
             if (onFallback) await onFallback("Switching to Jina AI");

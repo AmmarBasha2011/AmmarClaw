@@ -25,6 +25,9 @@ const envSchema = z.object({
   PYTHON_CONNECTION_ID: z.string().optional(),
   GOOGLE_SCHOLAR_CONNECTION_ID: z.string().optional(),
   JINA_API_KEY: z.string().optional(),
+  GOOGLE_CREDENTIALS: z.string().optional(),
+  GOOGLE_TOKEN: z.string().optional(),
+  WHATSAPP_ENABLED: z.string().optional().transform(v => v === 'true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

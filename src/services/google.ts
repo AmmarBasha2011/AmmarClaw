@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
 import fs from 'fs/promises';
 import path from 'path';
+import { config } from '../config/env.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
@@ -20,9 +21,24 @@ const CREDENTIALS_PATH = path.join(process.cwd(), 'client_secret.json');
 export class GoogleService {
   private auth: any = null;
 
-  async getAuthUrl(): Promise<string> {
+  private async getCredentials() {
+    if (config.GOOGLE_CREDENTIALS) {
+      return JSON.parse(config.GOOGLE_CREDENTIALS);
+    }
     const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
-    const credentials = JSON.parse(content);
+    return JSON.parse(content);
+  }
+
+  private async getTokens() {
+    if (config.GOOGLE_TOKEN) {
+        return JSON.parse(config.GOOGLE_TOKEN);
+    }
+    const content = await fs.readFile(TOKEN_PATH, 'utf8');
+    return JSON.parse(content);
+  }
+
+  async getAuthUrl(): Promise<string> {
+    const credentials = await this.getCredentials();
     const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
@@ -33,8 +49,7 @@ export class GoogleService {
   }
 
   async exchangeCode(code: string): Promise<void> {
-    const content = await fs.readFile(CREDENTIALS_PATH, 'utf8');
-    const credentials = JSON.parse(content);
+    const credentials = await this.getCredentials();
     const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
     const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
 
@@ -48,10 +63,8 @@ export class GoogleService {
     if (this.auth) return this.auth;
 
     try {
-      const content = await fs.readFile(TOKEN_PATH, 'utf8');
-      const tokens = JSON.parse(content);
-      const credsContent = await fs.readFile(CREDENTIALS_PATH, 'utf8');
-      const credentials = JSON.parse(credsContent);
+      const tokens = await this.getTokens();
+      const credentials = await this.getCredentials();
       const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
 
       const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
