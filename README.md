@@ -1,4 +1,4 @@
-# 🌙 AmmarClaw V1.4.3: Personal AI Assistant OS Agent
+# 🌙 AmmarClaw V2.0.0: Personal AI Assistant OS Agent
 
 AmmarClaw is a private, powerful, and persistent AI agent that acts as a personal "Operating System" for your digital life. Built for high-capacity reasoning and advanced system orchestration, it runs on Telegram and leverages the multimodal power of Google Gemini.
 
@@ -12,7 +12,8 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **V1.3**: Integrated 20+ MCP servers (Gmail, Canva, Maps, PayPal, etc.), fixed duplicate tool errors, added Jules/Stitch/Koyeb native toolsets, and multi-modal file extraction loop.
 *   **V1.31**: Website Screenshots tool (Playwright) and Autonomous "/notreturn" Mode for silent task completion.
 *   **V1.321**: Fixed Koyeb API endpoint (switched to app.koyeb.com), and unified version across all system strings.
-*   **V1.4.3 (Latest)**: Massive Intelligence Upgrade. Sequential LLM fallback chain (Gemini -> GitHub GPT-4o -> OpenRouter -> Puter Claude -> Groq). Added Image (Imagen 3) and Audio generation tools.
+*   **V1.4.3**: Massive Intelligence Upgrade. Sequential LLM fallback chain (Gemini -> GitHub GPT-4o -> OpenRouter -> Puter Claude -> Groq). Added Image (Imagen 3) and Audio generation tools.
+*   **V2.0.0 (Latest)**: Core Refactor. Solved Gemini API Errors (Thought Signature & Function Grouping), improved Koyeb stability, and added a comprehensive test suite.
 
 ## ✨ Key Capabilities
 

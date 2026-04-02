@@ -83,11 +83,12 @@ export class GeminiProvider implements LLMProvider {
                       geminiHistory.push({
                           role: 'model',
                           parts: parsed.rawParts.map((part: any) => {
+                              const newPart = { ...part };
                               // Ensure functionCall parts have a signature for Gemini 3
-                              if (part.functionCall && !part.thought_signature) {
-                                  part.thought_signature = "skip_thought_signature_validator";
+                              if (newPart.functionCall && !newPart.thought_signature) {
+                                  (newPart as any).thought_signature = "skip_thought_signature_validator";
                               }
-                              return part;
+                              return newPart;
                           })
                       });
                       i++;
@@ -183,7 +184,7 @@ FORMATTING RULES (CRITICAL):
                 toolCalls.push({
                     name: part.functionCall.name,
                     args: part.functionCall.args,
-                    thought_signature: (part as any).thought_signature 
+                    thought_signature: (part as any).thought_signature
                 });
             }
         }
@@ -322,13 +323,16 @@ export class PuterProvider implements LLMProvider {
 }
 
 export class GroqProvider implements LLMProvider {
-  private client: Groq;
+  private client: Groq | null = null;
 
   constructor() {
-    this.client = new Groq({ apiKey: config.GROQ_API_KEY });
+    if (config.GROQ_API_KEY) {
+      this.client = new Groq({ apiKey: config.GROQ_API_KEY });
+    }
   }
 
   async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+    if (!this.client) throw new Error("Groq API key not provided.");
     const messages = history.map(msg => {
       if (msg.role === 'function') {
         return {

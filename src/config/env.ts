@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config();
+const envPath = process.env.DOTENV_CONFIG_PATH || '.env';
+dotenv.config({ path: envPath });
 
 const envSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().min(1, "Bot token is required"),
