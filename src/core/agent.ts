@@ -121,7 +121,9 @@ export class Agent {
         if (onFallback) await onFallback("Switching to smaller model");
 
         try {
-            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview", signal);
+            // Optimize Gemini Lite history to stay within free tier limits (250k tokens/min)
+            const liteHistory = chatHistory.length > 20 ? chatHistory.slice(-20) : chatHistory;
+            response = await this.llm.generate(liteHistory, "gemini-3.1-flash-lite-preview", signal);
         } catch (liteError: any) {
             console.error("[Agent] Gemini Lite failed. Switching to SiliconFlow...");
             if (onFallback) await onFallback("Switching to SiliconFlow (DeepSeek-R1)");

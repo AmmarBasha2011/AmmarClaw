@@ -29,11 +29,28 @@ export interface LLMProvider {
 
 export class GeminiProvider implements LLMProvider {
   private currentKeyIndex = 0;
+  private keyCooldowns: Map<number, number> = new Map();
 
   constructor() {}
 
   private getClient() {
     // Round-robin or simple index increment
+    let attempts = 0;
+    while (attempts < config.GEMINI_API_KEYS.length) {
+        const keyIndex = this.currentKeyIndex;
+        const cooldownUntil = this.keyCooldowns.get(keyIndex) || 0;
+
+        if (Date.now() > cooldownUntil) {
+            const key = config.GEMINI_API_KEYS[keyIndex];
+            return new GoogleGenerativeAI(key);
+        }
+
+        console.log(`[Gemini] Key ${keyIndex} is on cooldown. Skipping...`);
+        this.rotateKey();
+        attempts++;
+    }
+
+    // If all on cooldown, use current anyway (let it fail/retry)
     const key = config.GEMINI_API_KEYS[this.currentKeyIndex];
     return new GoogleGenerativeAI(key);
   }
@@ -198,8 +215,10 @@ FORMATTING RULES (CRITICAL):
             const delayMatch = error.message.match(/retry in (\d+)s/);
             const delay = delayMatch ? parseInt(delayMatch[1]) : 60;
 
+            // Mark key as cooled down for the duration
+            this.keyCooldowns.set(this.currentKeyIndex, Date.now() + (delay * 1000));
+
             // Before failing completely, try next key even for 429
-            // This satisfies "try all 11 keys" requirement
             this.rotateKey();
             attempt++;
 
