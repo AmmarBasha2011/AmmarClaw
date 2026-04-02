@@ -252,6 +252,43 @@ export class PuterProvider implements LLMProvider {
     }
 }
 
+export class SiliconFlowProvider implements LLMProvider {
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${config.SILICONFLOW_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: modelOverride || "deepseek-ai/DeepSeek-R1",
+                messages
+            }),
+            signal
+        });
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) throw new Error("No response from SiliconFlow.");
+        return { text: content };
+    }
+}
+
 export class GroqProvider implements LLMProvider {
   private client: Groq | null = null;
 
@@ -291,7 +328,7 @@ export class GroqProvider implements LLMProvider {
 
     const completion = await this.client.chat.completions.create({
       messages: messages,
-      model: modelOverride || "llama-3.3-70b-versatile",
+      model: modelOverride || "openai/gpt-oss-120b",
       temperature: 0.7,
       max_tokens: 1024,
     }, { signal });
@@ -304,5 +341,6 @@ export class GroqProvider implements LLMProvider {
 
 // Export singleton instances for easy usage
 export const geminiProvider = new GeminiProvider();
+export const siliconFlowProvider = new SiliconFlowProvider();
 export const puterProvider = new PuterProvider();
 export const groqProvider = new GroqProvider();

@@ -40,7 +40,7 @@ bot.command('start', (ctx) => ctx.reply('🌙 AmmarClaw is online and ready. Typ
 
 bot.command('help', (ctx) => {
     ctx.reply(
-        "🛠 *AmmarClaw V2.1.0 OS Commands*:\n\n" +
+        "🛠 *AmmarClaw V2.2.0 OS Commands*:\n\n" +
         "/auth - Link accounts (Google/YouTube/GitHub)\n" +
         "/auto [task] - Run without manual tool approvals\n" +
         "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
@@ -120,7 +120,7 @@ bot.command('status', (ctx) => {
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V2.1.0\n` +
+        `📦 *Code Version*: V2.2.0\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
         `🚀 *Total Tools*: ${total} available`,
@@ -260,7 +260,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[], start
     let autoMode = false;
     let notReturn = false;
     let mode: 'normal' | 'plan' | 'thinking' = 'normal';
-    let modelOverride: 'Gemini' | 'GeminiLite' | 'Groq' | undefined;
+    let modelOverride: 'Gemini' | 'GeminiLite' | 'SiliconFlow' | 'Groq' | 'Puter' | undefined;
 
     // Flexible parsing for /auto, /notreturn, /mode, and /model at start or end
     const autoRegex = /\/auto\b/gi;
@@ -285,7 +285,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[], start
         processedText = processedText.replace(modeRegex, '').trim();
     }
 
-    const modelRegex = /\/model\s+(Gemini|GeminiLite|Groq)\b/gi;
+    const modelRegex = /\/model\s+(Gemini|GeminiLite|SiliconFlow|Groq|Puter)\b/gi;
     const modelMatches = [...processedText.matchAll(modelRegex)];
     if (modelMatches.length > 0) {
         modelOverride = modelMatches[0][1] as any;

@@ -46,6 +46,7 @@ const envSchema = z.object({
   UPTIMEROBOT_API_KEY: z.string().optional(),
   UPTIMEROBOT_CONNECTION_ID: z.string().optional(),
   INEX_CONNECTION_ID: z.string().optional(),
+  SILICONFLOW_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
