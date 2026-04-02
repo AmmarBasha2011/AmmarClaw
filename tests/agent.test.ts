@@ -9,7 +9,7 @@ process.env.SUPABASE_KEY = "mock-key";
 process.env.SMITHERY_API_KEY = "mock-smithery";
 
 import { Agent } from '../src/core/agent.js';
-import { LLMProvider, ChatMessage, LLMResponse } from '../src/services/llm/index.ts';
+import { LLMProvider, ChatMessage, LLMResponse } from '../src/services/llm/index.js';
 import { MemoryService } from '../src/services/memory.js';
 
 // Mock LLM Provider
