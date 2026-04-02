@@ -266,7 +266,9 @@ export class GitHubModelsProvider implements LLMProvider {
             max_tokens: 4096,
         }, { signal });
 
-        return { text: response.choices[0]?.message?.content || "No response." };
+        const content = response.choices[0]?.message?.content;
+        if (!content) throw new Error("No response from GitHub Models.");
+        return { text: content };
     }
 }
 
@@ -301,7 +303,9 @@ export class OpenRouterWebProvider implements LLMProvider {
         });
 
         const data = await response.json();
-        return { text: data.choices?.[0]?.message?.content || "No response from OpenRouter." };
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) throw new Error("No response from OpenRouter.");
+        return { text: content };
     }
 }
 
@@ -366,9 +370,9 @@ export class GroqProvider implements LLMProvider {
       max_tokens: 1024,
     }, { signal });
 
-    return {
-      text: completion.choices[0]?.message?.content || "No response generated.",
-    };
+    const content = completion.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from Groq.");
+    return { text: content };
   }
 }
 

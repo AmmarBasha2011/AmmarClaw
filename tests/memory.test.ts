@@ -1,14 +1,14 @@
-import { MemoryService } from '../src/services/memory.js';
 
-// Mock config for tests
-process.env.SUPABASE_URL = "https://mock.supabase.co";
-process.env.SUPABASE_KEY = "mock-key";
 process.env.TELEGRAM_BOT_TOKEN = "mock-token";
 process.env.TELEGRAM_USER_ID = "12345";
 process.env.GEMINI_API_KEYS = "key1,key2";
 process.env.NETLIFY_AUTH_TOKEN = "mock-netlify";
 process.env.GITHUB_TOKEN = "mock-github";
+process.env.SUPABASE_URL = "https://mock.supabase.co";
+process.env.SUPABASE_KEY = "mock-key";
 process.env.SMITHERY_API_KEY = "mock-smithery";
+
+import { MemoryService } from '../src/services/memory.js';
 
 async function testMemoryService() {
   console.log("Testing MemoryService (Initialization only, requires Supabase for logic)...");
