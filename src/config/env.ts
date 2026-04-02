@@ -43,6 +43,9 @@ const envSchema = z.object({
   BRAVE_CONNECTION_ID: z.string().optional(),
   NOTION_CONNECTION_ID: z.string().optional(),
   SLACK_CONNECTION_ID: z.string().optional(),
+  UPTIMEROBOT_API_KEY: z.string().optional(),
+  UPTIMEROBOT_CONNECTION_ID: z.string().optional(),
+  INEX_CONNECTION_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
