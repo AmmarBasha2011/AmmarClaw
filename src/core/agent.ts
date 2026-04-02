@@ -1,5 +1,5 @@
 import { registry } from '../tools/index.js';
-import { LLMProvider, ChatMessage, MediaData, geminiProvider, githubModelsProvider, openRouterWebProvider, puterProvider, groqProvider } from '../services/llm/index.js';
+import { LLMProvider, ChatMessage, MediaData, geminiProvider, puterProvider, groqProvider } from '../services/llm/index.js';
 import { MemoryService, memory } from '../services/memory.js';
 
 export type AgentMode = 'normal' | 'plan' | 'thinking';
@@ -7,8 +7,6 @@ export type AgentMode = 'normal' | 'plan' | 'thinking';
 export class Agent {
   constructor(
     private llm: LLMProvider, 
-    private githubLLM: LLMProvider,
-    private openRouterLLM: LLMProvider,
     private puterLLM: LLMProvider,
     private fallbackLLM: LLMProvider,
     private memory: MemoryService
@@ -24,7 +22,7 @@ export class Agent {
     onFallback?: (provider: string) => Promise<void>,
     mode: AgentMode = 'normal',
     onThinking?: (thoughts: string) => Promise<void>,
-    modelOverride?: 'Gemini' | 'GeminiLite' | 'GitHub' | 'OpenRouter' | 'Puter' | 'Groq',
+    modelOverride?: 'Gemini' | 'GeminiLite' | 'Puter' | 'Groq',
     notReturn?: boolean
   ): Promise<string> {
     let currentPlan: { task: string, completed: boolean }[] = [];
@@ -91,14 +89,6 @@ export class Agent {
 
             if (modelOverride === 'Gemini') targetModel = 'gemini-3-flash-preview';
             else if (modelOverride === 'GeminiLite') targetModel = 'gemini-3.1-flash-lite-preview';
-            else if (modelOverride === 'GitHub') {
-                provider = this.githubLLM; targetModel = 'gpt-4o';
-                targetHistory = await getFallbackHistory(15);
-            }
-            else if (modelOverride === 'OpenRouter') {
-                provider = this.openRouterLLM; targetModel = 'minimax/minimax-m2.5:free';
-                targetHistory = await getFallbackHistory(15);
-            }
             else if (modelOverride === 'Puter') {
                 provider = this.puterLLM; targetModel = 'anthropic/claude-3.5-sonnet';
                 targetHistory = await getFallbackHistory(10);
@@ -128,45 +118,29 @@ export class Agent {
         try {
             response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview", signal);
         } catch (liteError: any) {
-            console.error("[Agent] Gemini Lite failed. Switching to GitHub Models...");
-            if (onFallback) await onFallback("Switching to GitHub Models (GPT-4o)");
+            console.error("[Agent] Gemini Lite failed. Switching to Puter.js...");
+            if (onFallback) await onFallback("Switching to Puter.js (Claude)");
 
             try {
-                const fallbackHistory = await getFallbackHistory(15);
-                response = await this.githubLLM.generate(fallbackHistory, "gpt-4o", signal);
-            } catch (githubError: any) {
-                console.error("[Agent] GitHub Models failed. Switching to OpenRouter...");
-                if (onFallback) await onFallback("Switching to OpenRouter (MiniMax)");
+                const fallbackHistory = await getFallbackHistory(10);
+                response = await this.puterLLM.generate(fallbackHistory, "anthropic/claude-3.5-sonnet", signal);
+            } catch (puterError: any) {
+                console.error("[Agent] Puter failed. Switching to Groq fallback...");
+                if (onFallback) await onFallback("Switching to Groq Cloud");
 
                 try {
-                    const fallbackHistory = await getFallbackHistory(15);
-                    response = await this.openRouterLLM.generate(fallbackHistory, "minimax/minimax-m2.5:free", signal);
-                } catch (orError: any) {
-                    console.error("[Agent] OpenRouter failed. Switching to Puter.js...");
-                    if (onFallback) await onFallback("Switching to Puter.js (Claude)");
-
-                    try {
-                        const fallbackHistory = await getFallbackHistory(10);
-                        response = await this.puterLLM.generate(fallbackHistory, "anthropic/claude-3.5-sonnet", signal);
-                    } catch (puterError: any) {
-                        console.error("[Agent] Puter failed. Switching to Groq fallback...");
-                        if (onFallback) await onFallback("Switching to Groq Cloud");
-
-                        try {
-                            const fallbackHistory = await getFallbackHistory(10);
-                            response = await this.fallbackLLM.generate(fallbackHistory, "openai/gpt-oss-120b", signal);
-                        } catch (fallbackError: any) {
-                            console.error("[Agent] All LLMs failed.", fallbackError);
-                            let delay = "some";
-                            if (error.message.startsWith('QUOTA_EXCEEDED:')) {
-                                delay = error.message.split(':')[1];
-                            } else {
-                                const delayMatch = error.message.match(/retry in (\d+)s/);
-                                if (delayMatch) delay = delayMatch[1];
-                            }
-                            return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
-                        }
+                    const fallbackHistory = await getFallbackHistory(10);
+                    response = await this.fallbackLLM.generate(fallbackHistory, "openai/gpt-oss-120b", signal);
+                } catch (fallbackError: any) {
+                    console.error("[Agent] All LLMs failed.", fallbackError);
+                    let delay = "some";
+                    if (error.message.startsWith('QUOTA_EXCEEDED:')) {
+                        delay = error.message.split(':')[1];
+                    } else {
+                        const delayMatch = error.message.match(/retry in (\d+)s/);
+                        if (delayMatch) delay = delayMatch[1];
                     }
+                    return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
                 }
             }
         }
@@ -237,6 +211,10 @@ export class Agent {
         continue;
       }
 
+      if (!response.text) {
+          console.error("[Agent] LLM returned empty text. Skipping memory save for assistant message.");
+          throw new Error("Received empty response from AI provider.");
+      }
       await this.memory.addMessage('assistant', response.text);
       return response.text;
     }
@@ -265,4 +243,4 @@ export class Agent {
   }
 }
 
-export const agent = new Agent(geminiProvider, githubModelsProvider, openRouterWebProvider, puterProvider, groqProvider, memory);
+export const agent = new Agent(geminiProvider, puterProvider, groqProvider, memory);

@@ -37,7 +37,7 @@ const mockMemory = {
 
 async function testAgentRun() {
   const mockLLM = new MockLLM();
-  const agent = new Agent(mockLLM, mockLLM, mockLLM, mockLLM, mockLLM, mockMemory);
+  const agent = new Agent(mockLLM, mockLLM, mockLLM, mockMemory);
 
   console.log("Testing Agent.run...");
   const result = await agent.run("user1", "Hello agent");

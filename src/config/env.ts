@@ -10,7 +10,7 @@ const envSchema = z.object({
   GROQ_API_KEY: z.string().optional(),
   GEMINI_API_KEYS: z.string().min(1, "Gemini API keys are required").transform(s => s.split(',').map(k => k.trim())),
   NETLIFY_AUTH_TOKEN: z.string().min(1, "Netlify token is required"),
-  GITHUB_TOKEN: z.string().min(1, "GitHub token is required"),
+  GITHUB_TOKEN: z.string().optional(),
   SUPABASE_URL: z.string().min(1, "Supabase URL is required"),
   SUPABASE_KEY: z.string().min(1, "Supabase Key is required"),
   DB_PATH: z.string().default('./memory.db'),
