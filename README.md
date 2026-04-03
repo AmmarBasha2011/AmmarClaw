@@ -1,4 +1,4 @@
-# 🌙 AmmarClaw V2.2.1: Personal AI Assistant OS Agent
+# 🌙 AmmarClaw V2.2.2: Personal AI Assistant OS Agent
 
 AmmarClaw is a private, powerful, and persistent AI agent that acts as a personal "Operating System" for your digital life. Built for high-capacity reasoning and advanced system orchestration, it runs on Telegram and leverages the multimodal power of Google Gemini.
 
@@ -16,7 +16,8 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **V2.0.0**: Core Refactor. Solved Gemini API Errors (Thought Signature & Function Grouping), improved Koyeb stability, and added a comprehensive test suite.
 *   **V2.1.0**: Expanded Orchestration. Added UptimeRobot and Inex Docs MCP integrations. Streamlined fallback chain (purged GitHub/OpenRouter).
 *   **V2.2.0**: Multi-Brain Evolution. Added SiliconFlow (DeepSeek-R1) and upgraded Groq fallback (GPT-OSS-120B).
-*   **V2.2.1 (Latest)**: Quota Optimization. Reduced fallback history depth to mitigate Gemini Lite rate limits.
+*   **V2.2.1**: Quota Optimization. Reduced fallback history depth to mitigate Gemini Lite rate limits.
+*   **V2.2.2 (Latest)**: Maximum Intelligence. Restored GitHub and OpenRouter providers. Complete 7-tier sequential fallback chain.
 
 ## ✨ Key Capabilities
 
@@ -31,9 +32,11 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **Sequential Intelligence Fallback**:
     1.  **Primary**: Gemini 3 Flash (Exhaustive retry across all keys).
     2.  **Secondary**: Gemini 3.1 Flash Lite.
-    3.  **Third**: SiliconFlow (DeepSeek-R1).
-    4.  **Fourth**: Groq (openai/gpt-oss-120b).
-    5.  **Final**: Puter.js (Claude 3.5 Sonnet).
+    3.  **Third**: GitHub Models (GPT-4o).
+    4.  **Fourth**: OpenRouter (MiniMax M2.5).
+    5.  **Fifth**: SiliconFlow (DeepSeek-R1).
+    6.  **Sixth**: Groq (openai/gpt-oss-120b).
+    7.  **Final**: Puter.js (Claude 3.5 Sonnet).
 
 ## 🛠 Commands
 

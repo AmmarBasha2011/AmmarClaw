@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Groq } from 'groq-sdk';
+import OpenAI from 'openai';
 import { puter } from '@heyputer/puter.js';
 import { config } from '../../config/env.js';
 import { registry } from '../../tools/index.js';
@@ -25,6 +26,85 @@ export interface LLMResponse {
 
 export interface LLMProvider {
   generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse>;
+}
+
+export class GitHubModelsProvider implements LLMProvider {
+    private client: OpenAI | null = null;
+
+    constructor() {
+        if (config.GITHUB_TOKEN) {
+            this.client = new OpenAI({
+                apiKey: config.GITHUB_TOKEN,
+                baseURL: "https://models.inference.ai.azure.com"
+            });
+        }
+    }
+
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        if (!this.client) throw new Error("GitHub token not provided.");
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await this.client.chat.completions.create({
+            messages,
+            model: modelOverride || "gpt-4o",
+            temperature: 0.7,
+            max_tokens: 4096,
+        }, { signal });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) throw new Error("No response from GitHub Models.");
+        return { text: content };
+    }
+}
+
+export class OpenRouterWebProvider implements LLMProvider {
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${config.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: modelOverride || "minimax/minimax-m2.5:free",
+                messages
+            }),
+            signal
+        });
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) throw new Error("No response from OpenRouter.");
+        return { text: content };
+    }
 }
 
 export class GeminiProvider implements LLMProvider {
@@ -360,6 +440,8 @@ export class GroqProvider implements LLMProvider {
 
 // Export singleton instances for easy usage
 export const geminiProvider = new GeminiProvider();
+export const githubModelsProvider = new GitHubModelsProvider();
+export const openRouterWebProvider = new OpenRouterWebProvider();
 export const siliconFlowProvider = new SiliconFlowProvider();
 export const puterProvider = new PuterProvider();
 export const groqProvider = new GroqProvider();
