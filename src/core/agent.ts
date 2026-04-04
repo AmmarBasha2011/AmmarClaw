@@ -1,5 +1,5 @@
 import { registry } from '../tools/index.js';
-import { LLMProvider, ChatMessage, MediaData, geminiProvider, githubModelsProvider, openRouterWebProvider, puterProvider, groqProvider } from '../services/llm/index.js';
+import { LLMProvider, ChatMessage, MediaData, geminiProvider, githubModelsProvider, openRouterWebProvider, siliconFlowProvider, puterProvider, groqProvider } from '../services/llm/index.js';
 import { MemoryService, memory } from '../services/memory.js';
 
 export type AgentMode = 'normal' | 'plan' | 'thinking';
@@ -9,8 +9,9 @@ export class Agent {
     private llm: LLMProvider, 
     private githubLLM: LLMProvider,
     private openRouterLLM: LLMProvider,
-    private puterLLM: LLMProvider,
+    private siliconFlowLLM: LLMProvider,
     private fallbackLLM: LLMProvider,
+    private puterLLM: LLMProvider,
     private memory: MemoryService
   ) {}
 
@@ -24,7 +25,7 @@ export class Agent {
     onFallback?: (provider: string) => Promise<void>,
     mode: AgentMode = 'normal',
     onThinking?: (thoughts: string) => Promise<void>,
-    modelOverride?: 'Gemini' | 'GeminiLite' | 'GitHub' | 'OpenRouter' | 'Puter' | 'Groq',
+    modelOverride?: 'Gemini' | 'GeminiLite' | 'GitHub' | 'OpenRouter' | 'SiliconFlow' | 'Groq' | 'Puter',
     notReturn?: boolean
   ): Promise<string> {
     let currentPlan: { task: string, completed: boolean }[] = [];
@@ -99,12 +100,16 @@ export class Agent {
                 provider = this.openRouterLLM; targetModel = 'minimax/minimax-m2.5:free';
                 targetHistory = await getFallbackHistory(15);
             }
-            else if (modelOverride === 'Puter') {
-                provider = this.puterLLM; targetModel = 'anthropic/claude-3.5-sonnet';
-                targetHistory = await getFallbackHistory(10);
+            else if (modelOverride === 'SiliconFlow') {
+                provider = this.siliconFlowLLM; targetModel = 'deepseek-ai/DeepSeek-R1';
+                targetHistory = await getFallbackHistory(15);
             }
             else if (modelOverride === 'Groq') {
                 provider = this.fallbackLLM; targetModel = 'openai/gpt-oss-120b';
+                targetHistory = await getFallbackHistory(10);
+            }
+            else if (modelOverride === 'Puter') {
+                provider = this.puterLLM; targetModel = 'anthropic/claude-3.5-sonnet';
                 targetHistory = await getFallbackHistory(10);
             }
 
@@ -126,7 +131,9 @@ export class Agent {
         if (onFallback) await onFallback("Switching to smaller model");
 
         try {
-            response = await this.llm.generate(chatHistory, "gemini-3.1-flash-lite-preview", signal);
+            // Optimize Gemini Lite history to stay within free tier limits (250k tokens/min)
+            const liteHistory = chatHistory.length > 20 ? chatHistory.slice(-20) : chatHistory;
+            response = await this.llm.generate(liteHistory, "gemini-3.1-flash-lite-preview", signal);
         } catch (liteError: any) {
             console.error("[Agent] Gemini Lite failed. Switching to GitHub Models...");
             if (onFallback) await onFallback("Switching to GitHub Models (GPT-4o)");
@@ -142,29 +149,37 @@ export class Agent {
                     const fallbackHistory = await getFallbackHistory(15);
                     response = await this.openRouterLLM.generate(fallbackHistory, "minimax/minimax-m2.5:free", signal);
                 } catch (orError: any) {
-                    console.error("[Agent] OpenRouter failed. Switching to Puter.js...");
-                    if (onFallback) await onFallback("Switching to Puter.js (Claude)");
+                    console.error("[Agent] OpenRouter failed. Switching to SiliconFlow...");
+                    if (onFallback) await onFallback("Switching to SiliconFlow (DeepSeek-R1)");
 
                     try {
-                        const fallbackHistory = await getFallbackHistory(10);
-                        response = await this.puterLLM.generate(fallbackHistory, "anthropic/claude-3.5-sonnet", signal);
-                    } catch (puterError: any) {
-                        console.error("[Agent] Puter failed. Switching to Groq fallback...");
+                        const fallbackHistory = await getFallbackHistory(15);
+                        response = await this.siliconFlowLLM.generate(fallbackHistory, "deepseek-ai/DeepSeek-R1", signal);
+                    } catch (sfError: any) {
+                        console.error("[Agent] SiliconFlow failed. Switching to Groq fallback...");
                         if (onFallback) await onFallback("Switching to Groq Cloud");
 
                         try {
                             const fallbackHistory = await getFallbackHistory(10);
                             response = await this.fallbackLLM.generate(fallbackHistory, "openai/gpt-oss-120b", signal);
                         } catch (fallbackError: any) {
-                            console.error("[Agent] All LLMs failed.", fallbackError);
-                            let delay = "some";
-                            if (error.message.startsWith('QUOTA_EXCEEDED:')) {
-                                delay = error.message.split(':')[1];
-                            } else {
-                                const delayMatch = error.message.match(/retry in (\d+)s/);
-                                if (delayMatch) delay = delayMatch[1];
+                            console.error("[Agent] Groq failed. Switching to Puter final fallback...");
+                            if (onFallback) await onFallback("Switching to Puter.js (Claude)");
+
+                            try {
+                                const fallbackHistory = await getFallbackHistory(10);
+                                response = await this.puterLLM.generate(fallbackHistory, "anthropic/claude-3.5-sonnet", signal);
+                            } catch (puterError: any) {
+                                console.error("[Agent] All LLMs failed.", puterError);
+                                let delay = "some";
+                                if (error.message.startsWith('QUOTA_EXCEEDED:')) {
+                                    delay = error.message.split(':')[1];
+                                } else {
+                                    const delayMatch = error.message.match(/retry in (\d+)s/);
+                                    if (delayMatch) delay = delayMatch[1];
+                                }
+                                return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
                             }
-                            return `I'm having trouble thinking right now. Please wait ${delay} seconds to return Gemini.`;
                         }
                     }
                 }
@@ -237,6 +252,10 @@ export class Agent {
         continue;
       }
 
+      if (!response.text) {
+          console.error("[Agent] LLM returned empty text. Skipping memory save for assistant message.");
+          throw new Error("Received empty response from AI provider.");
+      }
       await this.memory.addMessage('assistant', response.text);
       return response.text;
     }
@@ -265,4 +284,4 @@ export class Agent {
   }
 }
 
-export const agent = new Agent(geminiProvider, githubModelsProvider, openRouterWebProvider, puterProvider, groqProvider, memory);
+export const agent = new Agent(geminiProvider, githubModelsProvider, openRouterWebProvider, siliconFlowProvider, groqProvider, puterProvider, memory);

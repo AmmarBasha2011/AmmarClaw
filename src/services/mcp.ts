@@ -11,7 +11,7 @@ interface MCPInstance {
     isConnected: boolean;
     name: string;
     mcpUrl: string;
-    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID' | 'GMAIL_CONNECTION_ID' | 'EXCALIDRAW_CONNECTION_ID' | 'CANVA_CONNECTION_ID' | 'MAPS_CONNECTION_ID' | 'CHARTS_CONNECTION_ID' | 'PAYPAL_CONNECTION_ID' | 'EXCEL_CONNECTION_ID' | 'BRAVE_CONNECTION_ID' | 'NOTION_CONNECTION_ID' | 'SLACK_CONNECTION_ID';
+    connectionIdKey: 'GITHUB_CONNECTION_ID' | 'SUPABASE_CONNECTION_ID' | 'WEATHER_CONNECTION_ID' | 'RSS_CONNECTION_ID' | 'ICONS8_CONNECTION_ID' | 'NPM_CONNECTION_ID' | 'FLIGHT_CONNECTION_ID' | 'PYTHON_CONNECTION_ID' | 'GOOGLE_SCHOLAR_CONNECTION_ID' | 'YOUTUBE_CONNECTION_ID' | 'PUBMED_CONNECTION_ID' | 'DDG_CONNECTION_ID' | 'WIKI_CONNECTION_ID' | 'GMAIL_CONNECTION_ID' | 'EXCALIDRAW_CONNECTION_ID' | 'CANVA_CONNECTION_ID' | 'MAPS_CONNECTION_ID' | 'CHARTS_CONNECTION_ID' | 'PAYPAL_CONNECTION_ID' | 'EXCEL_CONNECTION_ID' | 'BRAVE_CONNECTION_ID' | 'NOTION_CONNECTION_ID' | 'SLACK_CONNECTION_ID' | 'UPTIMEROBOT_CONNECTION_ID' | 'INEX_CONNECTION_ID';
 }
 
 export class MCPService {
@@ -225,6 +225,24 @@ export class MCPService {
             mcpUrl: 'https://slack.run.tools',
             connectionIdKey: 'SLACK_CONNECTION_ID'
         });
+        this.instances.set('uptimerobot', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'UptimeRobot',
+            mcpUrl: 'https://mcp.uptimerobot.com/mcp',
+            connectionIdKey: 'UPTIMEROBOT_CONNECTION_ID'
+        });
+        this.instances.set('inex', {
+            client: null,
+            transport: null,
+            tools: [],
+            isConnected: false,
+            name: 'Inex Docs',
+            mcpUrl: 'https://inex-1.gitbook.io/inex-docs/~gitbook/mcp',
+            connectionIdKey: 'INEX_CONNECTION_ID'
+        });
     }
 
     async connect() {
@@ -248,6 +266,13 @@ export class MCPService {
                 mcpUrl: instance.mcpUrl,
                 connectionId: connectionId,
             };
+
+            if (key === 'uptimerobot' && config.UPTIMEROBOT_API_KEY) {
+                options.headers = {
+                    'Authorization': `Bearer ${config.UPTIMEROBOT_API_KEY}`,
+                    'X-MCP-Content-Format': 'true'
+                };
+            }
 
 
             const connection = await createConnection(options);

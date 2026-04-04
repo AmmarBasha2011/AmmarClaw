@@ -40,11 +40,11 @@ bot.command('start', (ctx) => ctx.reply('🌙 AmmarClaw is online and ready. Typ
 
 bot.command('help', (ctx) => {
     ctx.reply(
-        "🛠 *AmmarClaw V1.4.3 OS Commands*:\n\n" +
+        "🛠 *AmmarClaw V2.2.2 OS Commands*:\n\n" +
         "/auth - Link accounts (Google/YouTube/GitHub)\n" +
         "/auto [task] - Run without manual tool approvals\n" +
         "/mode [plan|thinking|normal] - Switch reasoning mode\n" +
-        "/model [Gemini|GeminiLite|GitHub|OpenRouter|Puter|Groq] - Select specific model\n" +
+        "/model [Gemini|GeminiLite|GitHub|OpenRouter|SiliconFlow|Groq|Puter] - Select specific model\n" +
         "/schedule every [n] [unit] [task] - Automate a task\n" +
         "/schedules - List active automated tasks\n" +
         "/unschedule [id] - Remove a task\n" +
@@ -120,7 +120,7 @@ bot.command('status', (ctx) => {
     const total = nativeCount + status.toolCount;
     ctx.reply(
         `✅ AmmarClaw is running in *Unlimited* mode.\n\n` +
-        `📦 *Code Version*: V1.4.3\n` +
+        `📦 *Code Version*: V2.2.2\n` +
         `🔌 *MCP Status*: ${status.connected ? '✅ Connected' : '❌ Disconnected'}\n` +
         `🛠 *MCP Tools*: ${status.toolCount} loaded\n` +
         `🚀 *Total Tools*: ${total} available`,
@@ -260,7 +260,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[], start
     let autoMode = false;
     let notReturn = false;
     let mode: 'normal' | 'plan' | 'thinking' = 'normal';
-    let modelOverride: 'Gemini' | 'GeminiLite' | 'Groq' | undefined;
+    let modelOverride: 'Gemini' | 'GeminiLite' | 'GitHub' | 'OpenRouter' | 'SiliconFlow' | 'Groq' | 'Puter' | undefined;
 
     // Flexible parsing for /auto, /notreturn, /mode, and /model at start or end
     const autoRegex = /\/auto\b/gi;
@@ -285,7 +285,7 @@ async function handleAgentRun(ctx: any, text: string, media?: MediaData[], start
         processedText = processedText.replace(modeRegex, '').trim();
     }
 
-    const modelRegex = /\/model\s+(Gemini|GeminiLite|Groq)\b/gi;
+    const modelRegex = /\/model\s+(Gemini|GeminiLite|GitHub|OpenRouter|SiliconFlow|Groq|Puter)\b/gi;
     const modelMatches = [...processedText.matchAll(modelRegex)];
     if (modelMatches.length > 0) {
         modelOverride = modelMatches[0][1] as any;

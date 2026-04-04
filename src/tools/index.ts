@@ -1441,7 +1441,12 @@ const screenshotWebsite: Tool = {
   execute: async ({ url, fullPage }: { url: string, fullPage?: boolean }) => {
     let browser;
     try {
+      // Use system chromium if available (standard path in many nix/koyeb environments)
+      const executablePath = process.env.CHROME_PATH || '/usr/bin/chromium';
+      const hasSystemChromium = await fs.access(executablePath).then(() => true).catch(() => false);
+
       browser = await chromium.launch({
+          executablePath: hasSystemChromium ? executablePath : undefined,
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       });
       const page = await browser.newPage();

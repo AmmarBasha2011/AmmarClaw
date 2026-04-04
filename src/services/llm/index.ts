@@ -28,13 +28,109 @@ export interface LLMProvider {
   generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse>;
 }
 
+export class GitHubModelsProvider implements LLMProvider {
+    private client: OpenAI | null = null;
+
+    constructor() {
+        if (config.GITHUB_TOKEN) {
+            this.client = new OpenAI({
+                apiKey: config.GITHUB_TOKEN,
+                baseURL: "https://models.inference.ai.azure.com"
+            });
+        }
+    }
+
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        if (!this.client) throw new Error("GitHub token not provided.");
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await this.client.chat.completions.create({
+            messages,
+            model: modelOverride || "gpt-4o",
+            temperature: 0.7,
+            max_tokens: 4096,
+        }, { signal });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) throw new Error("No response from GitHub Models.");
+        return { text: content };
+    }
+}
+
+export class OpenRouterWebProvider implements LLMProvider {
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${config.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: modelOverride || "minimax/minimax-m2.5:free",
+                messages
+            }),
+            signal
+        });
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) throw new Error("No response from OpenRouter.");
+        return { text: content };
+    }
+}
+
 export class GeminiProvider implements LLMProvider {
   private currentKeyIndex = 0;
+  private keyCooldowns: Map<number, number> = new Map();
 
   constructor() {}
 
   private getClient() {
     // Round-robin or simple index increment
+    let attempts = 0;
+    while (attempts < config.GEMINI_API_KEYS.length) {
+        const keyIndex = this.currentKeyIndex;
+        const cooldownUntil = this.keyCooldowns.get(keyIndex) || 0;
+
+        if (Date.now() > cooldownUntil) {
+            const key = config.GEMINI_API_KEYS[keyIndex];
+            return new GoogleGenerativeAI(key);
+        }
+
+        console.log(`[Gemini] Key ${keyIndex} is on cooldown. Skipping...`);
+        this.rotateKey();
+        attempts++;
+    }
+
+    // If all on cooldown, use current anyway (let it fail/retry)
     const key = config.GEMINI_API_KEYS[this.currentKeyIndex];
     return new GoogleGenerativeAI(key);
   }
@@ -83,11 +179,12 @@ export class GeminiProvider implements LLMProvider {
                       geminiHistory.push({
                           role: 'model',
                           parts: parsed.rawParts.map((part: any) => {
+                              const newPart = { ...part };
                               // Ensure functionCall parts have a signature for Gemini 3
-                              if (part.functionCall && !part.thought_signature) {
-                                  part.thought_signature = "skip_thought_signature_validator";
+                              if (newPart.functionCall && !newPart.thought_signature) {
+                                  (newPart as any).thought_signature = "skip_thought_signature_validator";
                               }
-                              return part;
+                              return newPart;
                           })
                       });
                       i++;
@@ -183,7 +280,7 @@ FORMATTING RULES (CRITICAL):
                 toolCalls.push({
                     name: part.functionCall.name,
                     args: part.functionCall.args,
-                    thought_signature: (part as any).thought_signature 
+                    thought_signature: (part as any).thought_signature
                 });
             }
         }
@@ -198,8 +295,10 @@ FORMATTING RULES (CRITICAL):
             const delayMatch = error.message.match(/retry in (\d+)s/);
             const delay = delayMatch ? parseInt(delayMatch[1]) : 60;
 
+            // Mark key as cooled down for the duration
+            this.keyCooldowns.set(this.currentKeyIndex, Date.now() + (delay * 1000));
+
             // Before failing completely, try next key even for 429
-            // This satisfies "try all 11 keys" requirement
             this.rotateKey();
             attempt++;
 
@@ -232,77 +331,6 @@ FORMATTING RULES (CRITICAL):
   }
 }
 
-export class GitHubModelsProvider implements LLMProvider {
-    private client: OpenAI;
-
-    constructor() {
-        this.client = new OpenAI({
-            apiKey: config.GITHUB_TOKEN,
-            baseURL: "https://models.inference.ai.azure.com"
-        });
-    }
-
-    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
-        const messages = history.map(msg => {
-            if (msg.role === 'function') {
-                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
-            }
-            let content = msg.content;
-            try {
-                const parsed = JSON.parse(content);
-                if (parsed.type === 'tool_call') {
-                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
-                    content = textPart || "[Assistant calling tools...]";
-                }
-            } catch {}
-            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
-        }) as any[];
-
-        const response = await this.client.chat.completions.create({
-            messages,
-            model: modelOverride || "gpt-4o",
-            temperature: 0.7,
-            max_tokens: 4096,
-        }, { signal });
-
-        return { text: response.choices[0]?.message?.content || "No response." };
-    }
-}
-
-export class OpenRouterWebProvider implements LLMProvider {
-    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
-        const messages = history.map(msg => {
-            if (msg.role === 'function') {
-                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
-            }
-            let content = msg.content;
-            try {
-                const parsed = JSON.parse(content);
-                if (parsed.type === 'tool_call') {
-                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
-                    content = textPart || "[Assistant calling tools...]";
-                }
-            } catch {}
-            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
-        }) as any[];
-
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${config.OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                model: modelOverride || "minimax/minimax-m2.5:free",
-                messages
-            }),
-            signal
-        });
-
-        const data = await response.json();
-        return { text: data.choices?.[0]?.message?.content || "No response from OpenRouter." };
-    }
-}
 
 export class PuterProvider implements LLMProvider {
     async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
@@ -314,21 +342,63 @@ export class PuterProvider implements LLMProvider {
             const response = await (puter.ai as any).chat(prompt, {
                 model: modelOverride || "anthropic/claude-3.5-sonnet"
             });
-            return { text: response.message.content };
+            const content = response.message.content;
+            if (!content) throw new Error("No response from Puter.");
+            return { text: content };
         } catch (err: any) {
             throw new Error(`Puter Error: ${err.message}`);
         }
     }
 }
 
+export class SiliconFlowProvider implements LLMProvider {
+    async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+        const messages = history.map(msg => {
+            if (msg.role === 'function') {
+                return { role: 'system', content: `[Tool ${msg.name} Result]: ${msg.content}` };
+            }
+            let content = msg.content;
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.type === 'tool_call') {
+                    const textPart = parsed.rawParts?.find((p: any) => p.text)?.text;
+                    content = textPart || "[Assistant calling tools...]";
+                }
+            } catch {}
+            return { role: msg.role === 'assistant' ? 'assistant' : 'user', content };
+        }) as any[];
+
+        const response = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${config.SILICONFLOW_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: modelOverride || "deepseek-ai/DeepSeek-R1",
+                messages
+            }),
+            signal
+        });
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) throw new Error("No response from SiliconFlow.");
+        return { text: content };
+    }
+}
+
 export class GroqProvider implements LLMProvider {
-  private client: Groq;
+  private client: Groq | null = null;
 
   constructor() {
-    this.client = new Groq({ apiKey: config.GROQ_API_KEY });
+    if (config.GROQ_API_KEY) {
+      this.client = new Groq({ apiKey: config.GROQ_API_KEY });
+    }
   }
 
   async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+    if (!this.client) throw new Error("Groq API key not provided.");
     const messages = history.map(msg => {
       if (msg.role === 'function') {
         return {
@@ -357,14 +427,14 @@ export class GroqProvider implements LLMProvider {
 
     const completion = await this.client.chat.completions.create({
       messages: messages,
-      model: modelOverride || "llama-3.3-70b-versatile",
+      model: modelOverride || "openai/gpt-oss-120b",
       temperature: 0.7,
       max_tokens: 1024,
     }, { signal });
 
-    return {
-      text: completion.choices[0]?.message?.content || "No response generated.",
-    };
+    const content = completion.choices[0]?.message?.content;
+    if (!content) throw new Error("No response from Groq.");
+    return { text: content };
   }
 }
 
@@ -372,5 +442,6 @@ export class GroqProvider implements LLMProvider {
 export const geminiProvider = new GeminiProvider();
 export const githubModelsProvider = new GitHubModelsProvider();
 export const openRouterWebProvider = new OpenRouterWebProvider();
+export const siliconFlowProvider = new SiliconFlowProvider();
 export const puterProvider = new PuterProvider();
 export const groqProvider = new GroqProvider();
