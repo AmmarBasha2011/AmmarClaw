@@ -1,6 +1,6 @@
 {
   "name": "ammarclaw",
-  "version": "1.0.0",
+  "version": "2.3.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "auth": "tsx auth.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "DOTENV_CONFIG_PATH=.env.test tsx tests/agent.test.ts && DOTENV_CONFIG_PATH=.env.test tsx tests/memory.test.ts && DOTENV_CONFIG_PATH=.env.test tsx tests/tools.test.ts"
   },
   "keywords": [],
   "author": "",
