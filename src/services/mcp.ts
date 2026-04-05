@@ -231,7 +231,7 @@ export class MCPService {
             tools: [],
             isConnected: false,
             name: 'UptimeRobot',
-            mcpUrl: 'https://mcp.uptimerobot.com/mcp',
+            mcpUrl: 'https://mcp.uptimerobot.com/mcp?X-MCP-Content-Format=true',
             connectionIdKey: 'UPTIMEROBOT_CONNECTION_ID'
         });
         this.instances.set('inex', {
@@ -268,10 +268,14 @@ export class MCPService {
             };
 
             if (key === 'uptimerobot' && config.UPTIMEROBOT_API_KEY) {
+                // Ensure headers are actually passed if Smithery client supports it
                 options.headers = {
-                    'Authorization': `Bearer ${config.UPTIMEROBOT_API_KEY}`,
+                    'Authorization': `Bearer ${config.UPTIMEROBOT_API_KEY.trim()}`,
                     'X-MCP-Content-Format': 'true'
                 };
+                // Fallback attempt: some remote MCPs allow token in URL for initialization
+                // though this is non-standard, it might help if headers fail
+                // options.mcpUrl += `&token=${config.UPTIMEROBOT_API_KEY}`;
             }
 
 

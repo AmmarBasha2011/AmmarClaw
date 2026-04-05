@@ -73,8 +73,11 @@ export class GitHubModelsProvider implements LLMProvider {
 export class RateLimiter {
     private requests: number[] = [];
     private tokens: number[] = [];
-    private readonly maxRPM = 10;
-    private readonly maxTPM = 250000;
+
+    constructor(
+        private readonly maxRPM: number = 10,
+        private readonly maxTPM: number = 250000
+    ) {}
 
     async check(tokensNeeded: number): Promise<number> {
         const now = Date.now();
@@ -239,6 +242,7 @@ export class OpenRouterWebProvider implements LLMProvider {
 export class GeminiProvider implements LLMProvider {
   private currentKeyIndex = 0;
   private keyCooldowns: Map<number, number> = new Map();
+  private globalRateLimiter = new RateLimiter(15, 500000); // Higher global limits shared across multiple keys
 
   constructor() {}
 
@@ -270,6 +274,11 @@ export class GeminiProvider implements LLMProvider {
   }
 
   async generate(history: ChatMessage[], modelOverride?: string, signal?: AbortSignal): Promise<LLMResponse> {
+    const waitTime = await this.globalRateLimiter.check(20000);
+    if (waitTime > 0) {
+        throw new Error(`QUOTA_EXCEEDED:${Math.ceil(waitTime / 1000)}`);
+    }
+
     const maxRetries = config.GEMINI_API_KEYS.length;
     let attempt = 0;
 
@@ -397,6 +406,7 @@ FORMATTING RULES (CRITICAL):
 
         const result = await chat.sendMessage(lastMsg.parts, { signal });
         const response = result.response;
+        this.globalRateLimiter.record(response.usageMetadata?.totalTokenCount || 20000);
         const text = response.text() || "";
         
         const candidate = response.candidates?.[0];
