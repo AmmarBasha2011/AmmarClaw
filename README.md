@@ -1,4 +1,4 @@
-# 🌙 AmmarClaw V2.2.2: Personal AI Assistant OS Agent
+# 🌙 AmmarClaw V2.3.1: Personal AI Assistant OS Agent
 
 AmmarClaw is a private, powerful, and persistent AI agent that acts as a personal "Operating System" for your digital life. Built for high-capacity reasoning and advanced system orchestration, it runs on Telegram and leverages the multimodal power of Google Gemini.
 
@@ -17,7 +17,8 @@ AmmarClaw is a private, powerful, and persistent AI agent that acts as a persona
 *   **V2.1.0**: Expanded Orchestration. Added UptimeRobot and Inex Docs MCP integrations. Streamlined fallback chain (purged GitHub/OpenRouter).
 *   **V2.2.0**: Multi-Brain Evolution. Added SiliconFlow (DeepSeek-R1) and upgraded Groq fallback (GPT-OSS-120B).
 *   **V2.2.1**: Quota Optimization. Reduced fallback history depth to mitigate Gemini Lite rate limits.
-*   **V2.2.2 (Latest)**: Maximum Intelligence. Restored GitHub and OpenRouter providers. Complete 7-tier sequential fallback chain.
+*   **V2.2.2**: Maximum Intelligence. Restored GitHub and OpenRouter providers. Complete 7-tier sequential fallback chain.
+*   **V2.3.1 (Latest)**: Advanced Orchestration. Added Gemma 4 31B with automated rate limiting, context caching, and 8-tier fallback.
 
 ## ✨ Key Capabilities
 
